@@ -2,7 +2,7 @@
 
 import { Product } from "@/data/store";
 import { F } from "@/lib/format";
-import { useCart, useUI } from "@/lib/shop-state";
+import { useCart, useUI, useWish } from "@/lib/shop-state";
 
 /** The exact hexagon logo mark from the design */
 export function LogoMark({ size = 48 }: { size?: number }) {
@@ -45,12 +45,36 @@ export function useAddToCart() {
   };
 }
 
+/** قلب علاقه‌مندی — با کلاس .fav (همان زبان طراحی) */
+export function FavBtn({ id }: { id: number }) {
+  const ids = useWish((s) => s.ids);
+  const toggle = useWish((s) => s.toggle);
+  const on = ids.includes(id);
+  return (
+    <button
+      type="button"
+      aria-label={on ? "حذف از علاقه‌مندی‌ها" : "افزودن به علاقه‌مندی‌ها"}
+      aria-pressed={on}
+      className={"fav" + (on ? " on" : "")}
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const now = toggle(id);
+        useUI.getState().say(now ? "به علاقه‌مندی‌ها اضافه شد ❤️" : "از علاقه‌مندی‌ها حذف شد");
+      }}
+    >
+      {on ? "❤️" : "🤍"}
+    </button>
+  );
+}
+
 /** Product card — 1:1 from design's card() */
 export function ProductCard({ p }: { p: Product }) {
   const onAdd = useAddToCart();
   return (
     <div className="pc">
       <a href={`#p-${p.id}`} className="pi">
+        <FavBtn id={p.id} />
         {p.o ? <i>٪{F(Math.round(100 - (p.p / p.o) * 100))}</i> : null}
         {p.e}
       </a>

@@ -2,13 +2,15 @@
 
 import { C } from "@/data/store";
 import { F } from "@/lib/format";
-import { useCart, useRoute, useUI } from "@/lib/shop-state";
+import { useAuth, useCart, useData, useRoute, useUI, useWish } from "@/lib/shop-state";
 import { LogoMark } from "./bits";
 
 export function Header() {
   const go = useRoute((s) => s.go);
   const items = useCart((s) => s.items);
   const dr = useUI((s) => s.dr);
+  const user = useAuth((s) => s.user);
+  const wishCount = useWish((s) => s.ids.length);
   const count = items.reduce((a, x) => a + x.n, 0);
 
   const onSearch = (e: React.FormEvent<HTMLFormElement>) => {
@@ -34,6 +36,9 @@ export function Header() {
           <input name="q" placeholder="نام قطعه، کد فنی یا خودرو..." />
           <button type="submit">جستجو</button>
         </form>
+        <a className="cartb" href={user ? "#account" : "#auth"} title={user ? "حساب کاربری" : "ورود / ثبت‌نام"}>
+          👤 {user ? user.name.split(" ")[0] : "ورود"}
+        </a>
         <button className="cartb" type="button" onClick={() => dr(true)}>
           🛒 سبد<b>{F(count)}</b>
         </button>
@@ -52,6 +57,12 @@ export function Header() {
           <a href="#offers" style={{ color: "#ffb27a" }}>
             🔥 تخفیف‌ها
           </a>
+          {wishCount > 0 && (
+            <a href="#wishlist">
+              ❤️ علاقه‌مندی‌ها ({F(wishCount)})
+            </a>
+          )}
+          <a href="#track">پیگیری سفارش</a>
           <a href="#about">درباره ما</a>
           <a href="#contact">تماس با ما</a>
         </div>
@@ -68,7 +79,8 @@ export function Header() {
 }
 
 export function AnnBar() {
-  return <div className="ann">ارسال رایگان برای خرید بالای ۳ میلیون تومان · ضمانت اصالت کالا</div>;
+  const ann = useData((s) => s.settings.ann);
+  return <div className="ann">{ann}</div>;
 }
 
 export function Footer() {
@@ -86,6 +98,11 @@ export function Footer() {
           گارانتی اصالت · ۷ روز بازگشت · پشتیبانی واتساپ
         </div>
         <div>
+          <b>حساب کاربری</b>
+          <br />
+          <a href="#account">حساب من</a> · <a href="#track">پیگیری سفارش</a> · <a href="#wishlist">علاقه‌مندی‌ها</a>
+        </div>
+        <div>
           <b>پرداخت</b>
           <br />
           درگاه امن بانکی · پرداخت در محل
@@ -100,7 +117,9 @@ export function Footer() {
         <div>
           <b>دسترسی سریع</b>
           <br />
-          <a href="#about">درباره ما</a> · <a href="#contact">تماس</a> · <a href="#offers">تخفیف‌ها</a> ·{" "}
+          <a href="#about">درباره ما</a> · <a href="#contact">تماس</a> · <a href="#offers">تخفیف‌ها</a>
+          <br />
+          <a href="#faq">سوالات متداول</a> · <a href="#terms">قوانین</a> · <a href="#returns">رویه بازگشت</a> ·{" "}
           <a href="#admin">پنل مدیریت</a>
         </div>
       </div>

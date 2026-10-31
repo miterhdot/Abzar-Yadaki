@@ -1,7 +1,7 @@
 "use client";
 
-import { C, P } from "@/data/store";
-import { useRoute } from "@/lib/shop-state";
+import { C } from "@/data/store";
+import { useData, useRoute } from "@/lib/shop-state";
 import { ProductCard } from "../bits";
 
 export function ShopView() {
@@ -10,8 +10,9 @@ export function ShopView() {
   const sort = useRoute((s) => s.sort);
   const setSort = useRoute((s) => s.setSort);
   const go = useRoute((s) => s.go);
+  const prods = useData((s) => s.prods);
 
-  let list = P.filter((p) => (!cat || p.c === cat) && (!q || p.n.includes(q)));
+  let list = prods.filter((p) => (!cat || p.c === cat) && (!q || p.n.includes(q)));
   if (sort === "a") list = [...list].sort((a, b) => a.p - b.p);
   if (sort === "d") list = [...list].sort((a, b) => b.p - a.p);
 

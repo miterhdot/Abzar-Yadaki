@@ -2,7 +2,7 @@
 
 import { FREE } from "@/data/store";
 import { F, dg } from "@/lib/format";
-import { useUI } from "@/lib/shop-state";
+import { useData, useUI } from "@/lib/shop-state";
 import { Pn } from "../bits";
 import { Crumb } from "../bits-helper";
 
@@ -17,12 +17,22 @@ export function ContactView() {
             className="panel fm"
             onSubmit={(e) => {
               e.preventDefault();
-              const m = (e.currentTarget.elements.namedItem("m") as HTMLInputElement).value.trim();
-              if (!/^09\d{9}$/.test(dg(m))) {
+              const el = e.currentTarget.elements;
+              const m = dg((el.namedItem("m") as HTMLInputElement).value.trim());
+              if (!/^09\d{9}$/.test(m)) {
                 useUI.getState().say("شماره موبایل معتبر نیست");
                 return;
               }
-              useUI.getState().say("پیام شما ثبت شد ✓");
+              useData.getState().addMsg({
+                id: Date.now(),
+                name: (el.namedItem("n") as HTMLInputElement).value.trim(),
+                phone: m,
+                subject: (el.namedItem("s") as HTMLSelectElement).value,
+                text: (el.namedItem("t") as HTMLTextAreaElement).value.trim(),
+                unread: true,
+                day: 0,
+              });
+              useUI.getState().say("پیام شما ثبت شد و در اسرع وقت پاسخ داده می‌شود ✓");
               e.currentTarget.reset();
             }}
           >
@@ -38,7 +48,7 @@ export function ContactView() {
             </div>
             <label>
               موضوع
-              <select>
+              <select name="s">
                 <option>انتخاب قطعه مناسب خودرو</option>
                 <option>پیگیری سفارش</option>
                 <option>مرجوعی و گارانتی</option>
@@ -47,7 +57,7 @@ export function ContactView() {
             </label>
             <label>
               پیام
-              <textarea rows={5} required />
+              <textarea name="t" rows={5} required />
             </label>
             <button className="btn" type="submit">
               ارسال پیام
@@ -60,7 +70,10 @@ export function ContactView() {
             <Pn t="📍 نشانی" d="نشانی فروشگاه را اینجا بنویسید" />
           </div>
         </div>
-        <h2>پرسش‌های متداول</h2>
+        <h2>
+          پرسش‌های متداول{" "}
+          <a href="#faq">همه سوالات ‹</a>
+        </h2>
         <details>
           <summary>چطور قطعه‌ی سازگار را پیدا کنم؟</summary>
           <p>از انتخاب برند، مدل و سال در صفحه اول استفاده کنید.</p>

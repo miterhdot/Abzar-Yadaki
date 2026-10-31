@@ -73,6 +73,8 @@ export const FIT = {
 
 export type OrderStatus = "processing" | "sent" | "done" | "canceled";
 
+export type OrderLine = [number, number]; // [productId, qty]
+
 export type Order = {
   code: string;
   name: string;
@@ -81,19 +83,23 @@ export type Order = {
   total: number;
   status: OrderStatus;
   day: number; // days ago
+  lines?: OrderLine[];
+  addr?: string;
+  pay?: string; // online | cod
+  ship?: string; // post | peyk
 };
 
 export const ORDERS: Order[] = [
-  { code: "AY-K3M9X2", name: "علی رضایی", phone: "۰۹۱۲۳۴۵۶۷۸۹", items: 3, total: 3215000, status: "processing", day: 0 },
-  { code: "AY-B7T2Q4", name: "مریم کریمی", phone: "۰۹۳۵۱۱۲۲۳۳۴", items: 2, total: 1640000, status: "sent", day: 0 },
-  { code: "AY-Z8N1L5", name: "حسین محمدی", phone: "۰۹۱۹۸۷۶۵۴۳۲", items: 1, total: 3950000, status: "done", day: 1 },
-  { code: "AY-P4W6R8", name: "زهرا احمدی", phone: "۰۹۰۲۳۳۴۴۵۵۶", items: 5, total: 5480000, status: "done", day: 1 },
-  { code: "AY-Q9J3K7", name: "رضا قاسمی", phone: "۰۹۱۲۷۷۸۸۹۹۰", items: 2, total: 2140000, status: "sent", day: 2 },
-  { code: "AY-M2V8C5", name: "سارا موسوی", phone: "۰۹۳۳۱۲۳۴۵۶۷", items: 1, total: 890000, status: "canceled", day: 3 },
-  { code: "AY-D5F7G2", name: "امیر حسینی", phone: "۰۹۱۰۴۵۶۷۸۹۱", items: 4, total: 4360000, status: "done", day: 4 },
-  { code: "AY-S6H1J9", name: "فاطمه نوری", phone: "۰۹۲۱۸۷۶۵۴۳۲", items: 2, total: 1440000, status: "done", day: 5 },
-  { code: "AY-T3K8L4", name: "مهدی صادقی", phone: "۰۹۳۶۶۵۵۴۴۳۳", items: 3, total: 2610000, status: "done", day: 6 },
-  { code: "AY-N7P2Q6", name: "نگار جعفری", phone: "۰۹۱۲۹۹۸۸۷۷۶", items: 1, total: 2350000, status: "canceled", day: 7 },
+  { code: "AY-K3M9X2", name: "علی رضایی", phone: "۰۹۱۲۳۴۵۶۷۸۹", items: 3, total: 3215000, status: "processing", day: 0, lines: [[1, 2], [4, 1], [11, 1]], addr: "تهران، خیابان ولیعصر، کوچه یاس، پلاک ۱۲", pay: "online", ship: "post" },
+  { code: "AY-B7T2Q4", name: "مریم کریمی", phone: "۰۹۳۵۱۱۲۲۳۳۴", items: 2, total: 1640000, status: "sent", day: 0, lines: [[7, 2], [11, 1]], addr: "شیراز، بلوار زند، ساختمان نور، طبقه ۳", pay: "online", ship: "post" },
+  { code: "AY-Z8N1L5", name: "حسین محمدی", phone: "۰۹۱۹۸۷۶۵۴۳۲", items: 1, total: 3950000, status: "done", day: 1, lines: [[9, 1]], addr: "اصفهان، خیابان چهارباغ، پلاک ۸", pay: "cod", ship: "post" },
+  { code: "AY-P4W6R8", name: "زهرا احمدی", phone: "۰۹۰۲۳۳۴۴۵۵۶", items: 5, total: 5480000, status: "done", day: 1, lines: [[5, 1], [16, 1], [12, 1], [13, 1], [3, 1]], addr: "کرج، مهرشهر، بلوار ارم، پلاک ۴۵", pay: "online", ship: "peyk" },
+  { code: "AY-Q9J3K7", name: "رضا قاسمی", phone: "۰۹۱۲۷۷۸۸۹۹۰", items: 2, total: 2140000, status: "sent", day: 2, lines: [[12, 2], [13, 1]], addr: "تبریز، خیابان امام، کوچه سعد، پلاک ۹", pay: "online", ship: "post" },
+  { code: "AY-M2V8C5", name: "سارا موسوی", phone: "۰۹۳۳۱۲۳۴۵۶۷", items: 1, total: 890000, status: "canceled", day: 3, lines: [[12, 1]], addr: "تهران، سعادت‌آباد، میدان کاج، پلاک ۲", pay: "online", ship: "post" },
+  { code: "AY-D5F7G2", name: "امیر حسینی", phone: "۰۹۱۰۴۵۶۷۸۹۱", items: 4, total: 4360000, status: "done", day: 4, lines: [[15, 1], [9, 1], [4, 1], [2, 1]], addr: "مشهد، بلوار وکیل‌آباد، پلاک ۳۳", pay: "online", ship: "post" },
+  { code: "AY-S6H1J9", name: "فاطمه نوری", phone: "۰۹۲۱۸۷۶۵۴۳۲", items: 2, total: 1440000, status: "done", day: 5, lines: [[1, 2], [7, 2]], addr: "تهران، نارمک، خیابان گلستان، پلاک ۷", pay: "cod", ship: "peyk" },
+  { code: "AY-T3K8L4", name: "مهدی صادقی", phone: "۰۹۳۶۶۵۵۴۴۳۳", items: 3, total: 2610000, status: "done", day: 6, lines: [[11, 3], [7, 3], [1, 3]], addr: "قم، خیابان ۱۹ دی، پلاک ۱۴", pay: "online", ship: "post" },
+  { code: "AY-N7P2Q6", name: "نگار جعفری", phone: "۰۹۱۲۹۹۸۸۷۷۶", items: 1, total: 2350000, status: "canceled", day: 7, lines: [[5, 1]], addr: "رشت، خیابان مطهری، پلاک ۲۱", pay: "online", ship: "post" },
 ];
 
 export const STATUS_FA: Record<OrderStatus, string> = {
@@ -124,4 +130,71 @@ export const CUSTOMERS: Customer[] = [
 /** آخرین ۷ روز — فروش به میلیون تومان */
 export const WEEK_SALES: [string, number][] = [
   ["ش", 8.2], ["ی", 9.1], ["د", 7.4], ["س", 10.3], ["چ", 11.8], ["پ", 9.6], ["ج", 12.45],
+];
+
+/** فروش ۶ ماه اخیر (میلیون تومان) — گزارش‌ها */
+export const MONTH_SALES: [string, number][] = [
+  ["خرداد", 148], ["تیر", 165], ["مرداد", 151], ["شهریور", 189], ["مهر", 204], ["آبان", 232],
+];
+
+/* ── داده‌های نمایشی صفحات جدید (حساب، پیگیری، ادمین) ── */
+
+export type Coupon = { code: string; percent: number; max: number; active: boolean };
+
+export const COUPONS: Coupon[] = [
+  { code: "WELCOME", percent: 10, max: 500000, active: true },
+  { code: "ABZAR20", percent: 20, max: 1000000, active: true },
+  { code: "OLDBOY5", percent: 5, max: 200000, active: false },
+];
+
+export type Review = { id: number; pid: number; name: string; text: string; r: string; status: "pending" | "ok" | "no" };
+
+export const REVIEWS_QUEUE: Review[] = [
+  { id: 1, pid: 1, name: "علی ر.", text: "فیلتر اصل بود، روی پراید ۹۴ کاملاً جفت شد.", r: "۵", status: "ok" },
+  { id: 2, pid: 1, name: "مجید ت.", text: "بسته‌بندی خوب، قیمت هم مناسب‌تر از بازار.", r: "۴", status: "ok" },
+  { id: 3, pid: 2, name: "سمیرا ن.", text: "لنت‌ها بی‌صدا و بدون صدا دادن ترمز می‌گیرند.", r: "۵", status: "ok" },
+  { id: 4, pid: 5, name: "کاوه ش.", text: "کیفیت آچارها عالیه، کیفش هم محکمه.", r: "۵", status: "pending" },
+  { id: 5, pid: 9, name: "نادر ف.", text: "باتری رو ۴ ماه استفاده کردم، راضی‌ام.", r: "۴", status: "pending" },
+];
+
+export type Msg = { id: number; name: string; phone: string; subject: string; text: string; unread: boolean; day: number };
+
+export const MSGS: Msg[] = [
+  { id: 1, name: "حسین محمدی", phone: "۰۹۱۹۸۷۶۵۴۳۲", subject: "پیگیری سفارش", text: "سلام، سفارش AY-Z8N1L5 کِی ارسال می‌شه؟", unread: true, day: 0 },
+  { id: 2, name: "رضا قاسمی", phone: "۰۹۱۲۷۷۸۸۹۹۰", subject: "انتخاب قطعه مناسب خودرو", text: "برای ۴۰۵ مدل ۹۰ کدوم شمع بهتره؟", unread: true, day: 0 },
+  { id: 3, name: "سارا موسوی", phone: "۰۹۳۳۱۲۳۴۵۶۷", subject: "مرجوعی و گارانتی", text: "پمپ باد مشکل داشت، مرجوع کردم. کی هزینه برمی‌گرده؟", unread: false, day: 1 },
+  { id: 4, name: "امیر حسینی", phone: "۰۹۱۰۴۵۶۷۸۹۱", subject: "همکاری عمده", text: "برای تعمیرگاه قیمت عمده می‌دید؟", unread: false, day: 2 },
+];
+
+export type Banner = { id: number; t: string; d: string; href: string; bg: string; active: boolean };
+
+export const BANNERS: Banner[] = [
+  { id: 1, t: "⚡ تخفیف ویژه امروز", d: "قطعات منتخب با قیمت شگفت‌انگیز", href: "#offers", bg: "linear-gradient(135deg,#ff6a1a,#c2410c)", active: true },
+  { id: 2, t: "🔧 ابزار حرفه‌ای", d: "آچار، جک و تجهیزات کارگاهی", href: "#cats", bg: "linear-gradient(135deg,#143a66,#0b1f3a)", active: true },
+];
+
+export type Address = { id: number; phone: string; title: string; text: string };
+
+export const ADDRESSES: Address[] = [
+  { id: 1, phone: "۰۹۱۲۳۴۵۶۷۸۹", title: "خانه", text: "تهران، خیابان ولیعصر، کوچه یاس، پلاک ۱۲، واحد ۳" },
+  { id: 2, phone: "۰۹۱۲۳۴۵۶۷۸۹", title: "محل کار", text: "تهران، میدان آزادی، مجتمع فنی آریا، پلاک ۴" },
+];
+
+export type Settings = typeof SETTINGS;
+
+export const SETTINGS = {
+  ann: "ارسال رایگان برای خرید بالای ۳ میلیون تومان · ضمانت اصالت کالا",
+  phone: "۰۲۱-۰۰۰۰۰۰۰۰ (نمونه)",
+  free: FREE,
+  shipPost: 80000,
+  shipPeyk: 120000,
+};
+
+export const FAQS: [string, string][] = [
+  ["چطور قطعه‌ی سازگار با خودروی خود را پیدا کنم؟", "از انتخاب برند، مدل و سال ساخت در جعبه‌ی نارنجی صفحه اصلی استفاده کنید؛ فقط قطعه‌های سازگار نمایش داده می‌شوند. اگر شک دارید، قبل از خرید با پشتیبانی فنی تماس بگیرید."],
+  ["سفارش چه زمانی ارسال می‌شود؟", "سفارش‌های ثبت‌شده تا ساعت ۱۴، همان روز کاری پردازش و ارسال می‌شوند. سفارش‌های بعد از ظهر روز کاری بعد ارسال می‌شوند."],
+  ["هزینه و زمان ارسال چقدر است؟", "پست پیشتاز ۸۰ هزار تومان و پیک همان‌روز تهران ۱۲۰ هزار تومان است. برای سفارش‌های بالای ۳ میلیون تومان ارسال رایگان است."],
+  ["کالا را می‌توانم مرجوع کنم؟", "بله؛ تا ۷ روز پس از تحویل، با سالم بودن بسته‌بندی و کارکرد نکردن قطعه، طبق «رویه بازگرداندن کالا» مرجوع می‌شود."],
+  ["اصالت قطعه‌ها چطور تضمین می‌شود؟", "هر قطعه با فاکتور رسمی و کد رهگیری ارسال می‌شود و منبع تأمین همه برندها بررسی شده است."],
+  ["پرداخت در محل دارید؟", "بله، علاوه بر درگاه امن بانکی، پرداخت در محل برای تهران و شهرستان‌ها فعال است."],
 ];

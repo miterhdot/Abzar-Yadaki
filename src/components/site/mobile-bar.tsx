@@ -49,6 +49,11 @@ export function MobileBar() {
             <a href="#shop">🛍️ همه محصولات</a>
             <a href="#cats">🗂️ دسته‌بندی‌ها</a>
             <a href="#offers">🔥 تخفیف‌ها</a>
+            <a href="#auth">👤 ورود / ثبت‌نام</a>
+            <a href="#account">📋 حساب من</a>
+            <a href="#wishlist">❤️ علاقه‌مندی‌ها</a>
+            <a href="#track">📦 پیگیری سفارش</a>
+            <a href="#faq">❓ سوالات متداول</a>
             <a href="#about">ℹ️ درباره ما</a>
             <a href="#contact">📞 تماس با ما</a>
           </div>

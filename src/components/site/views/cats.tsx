@@ -1,12 +1,13 @@
 "use client";
 
-import { C, P } from "@/data/store";
+import { C } from "@/data/store";
 import { F } from "@/lib/format";
-import { useRoute } from "@/lib/shop-state";
+import { useData, useRoute } from "@/lib/shop-state";
 import { Crumb } from "../bits-helper";
 
 export function CatsView() {
   const go = useRoute((s) => s.go);
+  const prods = useData((s) => s.prods);
   return (
     <>
       <Crumb parts={["دسته‌بندی‌ها"]} />
@@ -19,7 +20,7 @@ export function CatsView() {
               <br />
               <b>{n}</b>
               <br />
-              <small style={{ color: "var(--mute)" }}>{F(P.filter((p) => p.c === n).length)} محصول</small>
+              <small style={{ color: "var(--mute)" }}>{F(prods.filter((p) => p.c === n).length)} محصول</small>
             </a>
           ))}
         </div>

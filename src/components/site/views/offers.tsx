@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { P } from "@/data/store";
+import { useData } from "@/lib/shop-state";
 import { pd } from "@/lib/format";
 import { ProductCard } from "../bits";
 import { Crumb } from "../bits-helper";
@@ -34,6 +34,7 @@ function Countdown() {
 }
 
 export function OffersView() {
+  const prods = useData((s) => s.prods);
   return (
     <>
       <Crumb parts={["تخفیف‌ها"]} />
@@ -42,7 +43,7 @@ export function OffersView() {
           تخفیف‌های ویژه <Countdown />
         </h2>
         <div className="grid">
-          {P.filter((p) => p.o).map((p) => (
+          {prods.filter((p) => p.o).map((p) => (
             <ProductCard key={p.id} p={p} />
           ))}
         </div>

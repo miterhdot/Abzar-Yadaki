@@ -1,14 +1,25 @@
 "use client";
 
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
-import { P, Product } from "@/data/store";
+import { createJSONStorage, persist } from "zustand/middleware";
+import {
+  ADDRESSES, Address, BANNERS, Banner, COUPONS, Coupon, MSGS, Msg, Order, OrderStatus,
+  P, Product, REVIEWS_QUEUE, Review, SETTINGS, Settings, ORDERS,
+} from "@/data/store";
 
 /* ─────────── Route (hash-based, same hashes as design) ─────────── */
 
 export type Page =
   | "home" | "shop" | "product" | "cats" | "offers"
-  | "about" | "contact" | "checkout" | "done" | "admin";
+  | "about" | "contact" | "checkout" | "done"
+  | "auth" | "account" | "track" | "wishlist"
+  | "faq" | "terms" | "returns"
+  | "notfound" | "admin";
+
+const PAGES: Page[] = [
+  "shop", "cats", "offers", "about", "contact", "checkout", "done",
+  "auth", "account", "track", "wishlist", "faq", "terms", "returns", "admin",
+];
 
 type GoOpts = { pid?: number; cat?: string; q?: string };
 
@@ -51,11 +62,11 @@ export const useRoute = create<RouteState>()((set) => ({
     const h = window.location.hash.slice(1) || "home";
     let page: Page = "home";
     let pid = 0;
-    if (h === "shop") page = "shop";
+    if (h === "home" || h === "") page = "home";
+    else if (h === "shop") page = "shop";
     else if (h.startsWith("p-")) { page = "product"; pid = Number(h.slice(2)) || 0; }
-    else if (["cats", "offers", "about", "contact", "checkout", "done", "admin"].includes(h)) {
-      page = h as Page;
-    }
+    else if (PAGES.includes(h as Page)) page = h as Page;
+    else page = "notfound";
     set({ page, pid });
     window.scrollTo(0, 0);
   },
@@ -103,9 +114,179 @@ export const cartCount = (items: CartLine[]): number =>
   items.reduce((a, x) => a + x.n, 0);
 
 export const cartTotal = (items: CartLine[]): number =>
-  items.reduce((a, x) => a + (P.find((y) => y.id === x.id)?.p ?? 0) * x.n, 0);
+  items.reduce((a, x) => a + (findProduct(x.id)?.p ?? 0) * x.n, 0);
 
-export const findProduct = (id: number): Product | undefined => P.find((y) => y.id === id);
+/* ─────────── Store data (admin-editable, persisted) ─────────── */
+
+type DataState = {
+  prods: Product[];
+  orders: Order[];
+  coupons: Coupon[];
+  reviews: Review[];
+  msgs: Msg[];
+  banners: Banner[];
+  addresses: Address[];
+  users: { name: string; phone: string }[];
+  settings: Settings;
+  /* products */
+  addProd: (p: Product) => void;
+  updProd: (p: Product) => void;
+  delProd: (id: number) => void;
+  /* orders */
+  addOrder: (o: Order) => void;
+  setOrderStatus: (code: string, s: OrderStatus) => void;
+  /* coupons */
+  addCoupon: (c: Coupon) => void;
+  toggleCoupon: (code: string) => void;
+  delCoupon: (code: string) => void;
+  /* reviews */
+  addReview: (r: Review) => void;
+  setReviewStatus: (id: number, s: Review["status"]) => void;
+  delReview: (id: number) => void;
+  /* messages */
+  addMsg: (m: Msg) => void;
+  readMsg: (id: number) => void;
+  delMsg: (id: number) => void;
+  /* banners */
+  toggleBanner: (id: number) => void;
+  addBanner: (b: Banner) => void;
+  delBanner: (id: number) => void;
+  /* addresses */
+  addAddress: (a: Address) => void;
+  delAddress: (id: number) => void;
+  /* users + settings */
+  upsertUser: (name: string, phone: string) => void;
+  saveSettings: (s: Settings) => void;
+};
+
+export const useData = create<DataState>()(
+  persist(
+    (set) => ({
+      prods: P,
+      orders: ORDERS,
+      coupons: COUPONS,
+      reviews: REVIEWS_QUEUE,
+      msgs: MSGS,
+      banners: BANNERS,
+      addresses: ADDRESSES,
+      users: [
+        { name: "علی رضایی", phone: "۰۹۱۲۳۴۵۶۷۸۹" },
+        { name: "مریم کریمی", phone: "۰۹۳۵۱۱۲۲۳۳۴" },
+        { name: "حسین محمدی", phone: "۰۹۱۹۸۷۶۵۴۳۲" },
+      ],
+      settings: SETTINGS,
+
+      addProd: (p) => set((st) => ({ prods: [p, ...st.prods] })),
+      updProd: (p) => set((st) => ({ prods: st.prods.map((x) => (x.id === p.id ? p : x)) })),
+      delProd: (id) => set((st) => ({ prods: st.prods.filter((x) => x.id !== id) })),
+
+      addOrder: (o) => set((st) => ({ orders: [o, ...st.orders] })),
+      setOrderStatus: (code, s) =>
+        set((st) => ({ orders: st.orders.map((o) => (o.code === code ? { ...o, status: s } : o)) })),
+
+      addCoupon: (c) => set((st) => ({ coupons: [c, ...st.coupons] })),
+      toggleCoupon: (code) =>
+        set((st) => ({ coupons: st.coupons.map((c) => (c.code === code ? { ...c, active: !c.active } : c)) })),
+      delCoupon: (code) => set((st) => ({ coupons: st.coupons.filter((c) => c.code !== code) })),
+
+      addReview: (r) => set((st) => ({ reviews: [r, ...st.reviews] })),
+      setReviewStatus: (id, s) =>
+        set((st) => ({ reviews: st.reviews.map((r) => (r.id === id ? { ...r, status: s } : r)) })),
+      delReview: (id) => set((st) => ({ reviews: st.reviews.filter((r) => r.id !== id) })),
+
+      addMsg: (m) => set((st) => ({ msgs: [m, ...st.msgs] })),
+      readMsg: (id) => set((st) => ({ msgs: st.msgs.map((m) => (m.id === id ? { ...m, unread: false } : m)) })),
+      delMsg: (id) => set((st) => ({ msgs: st.msgs.filter((m) => m.id !== id) })),
+
+      toggleBanner: (id) =>
+        set((st) => ({ banners: st.banners.map((b) => (b.id === id ? { ...b, active: !b.active } : b)) })),
+      addBanner: (b) => set((st) => ({ banners: [...st.banners, b] })),
+      delBanner: (id) => set((st) => ({ banners: st.banners.filter((b) => b.id !== id) })),
+
+      addAddress: (a) => set((st) => ({ addresses: [...st.addresses, a] })),
+      delAddress: (id) => set((st) => ({ addresses: st.addresses.filter((a) => a.id !== id) })),
+
+      upsertUser: (name, phone) =>
+        set((st) => ({
+          users: st.users.some((u) => u.phone === phone)
+            ? st.users.map((u) => (u.phone === phone ? { ...u, name } : u))
+            : [...st.users, { name, phone }],
+        })),
+
+      saveSettings: (s) => set({ settings: s }),
+    }),
+    { name: "abzar-data", skipHydration: true }
+  )
+);
+
+export const findProduct = (id: number): Product | undefined =>
+  useData.getState().prods.find((y) => y.id === id);
+
+/* ─────────── Auth (persisted) ─────────── */
+
+export type User = { name: string; phone: string };
+
+type AuthState = {
+  user: User | null;
+  login: (u: User) => void;
+  logout: () => void;
+};
+
+export const useAuth = create<AuthState>()(
+  persist(
+    (set) => ({
+      user: null,
+      login: (user) => set({ user }),
+      logout: () => set({ user: null }),
+    }),
+    { name: "abzar-user", skipHydration: true }
+  )
+);
+
+/* ─────────── Wishlist (persisted) ─────────── */
+
+type WishState = {
+  ids: number[];
+  toggle: (id: number) => boolean; // returns true if now wished
+};
+
+export const useWish = create<WishState>()(
+  persist(
+    (set) => ({
+      ids: [],
+      toggle: (id) => {
+        let now = false;
+        set((st) => {
+          const has = st.ids.includes(id);
+          now = !has;
+          return { ids: has ? st.ids.filter((x) => x !== id) : [id, ...st.ids] };
+        });
+        return now;
+      },
+    }),
+    { name: "abzar-wish", skipHydration: true }
+  )
+);
+
+/* ─────────── Admin session (per tab) ─────────── */
+
+type AdminState = { logged: boolean; login: () => void; logout: () => void };
+
+export const useAdmin = create<AdminState>()(
+  persist(
+    (set) => ({
+      logged: false,
+      login: () => set({ logged: true }),
+      logout: () => set({ logged: false }),
+    }),
+    { name: "abzar-admin", skipHydration: true, storage: createJSONStorage(() => sessionStorage) }
+  )
+);
+
+/* rehydrate every persisted store after mount (avoids SSR mismatch) */
+export const rehydrateAll = () => {
+  [useCart, useData, useAuth, useWish, useAdmin].forEach((s) => s.persist.rehydrate());
+};
 
 /* ─────────── UI (drawer / sheet / toast) ─────────── */
 

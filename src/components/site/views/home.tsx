@@ -1,12 +1,14 @@
 "use client";
 
-import { C, FIT, P, REVIEWS, TRUST, WHY } from "@/data/store";
-import { useRoute, useUI } from "@/lib/shop-state";
+import { C, FIT, REVIEWS, TRUST, WHY } from "@/data/store";
+import { useData, useRoute, useUI } from "@/lib/shop-state";
 import { Pn, ProductCard } from "../bits";
 
 export function HomeView() {
   const go = useRoute((s) => s.go);
-  const discounted = P.filter((p) => p.o);
+  const prods = useData((s) => s.prods);
+  const banners = useData((s) => s.banners);
+  const discounted = prods.filter((p) => p.o);
 
   return (
     <>
@@ -83,7 +85,7 @@ export function HomeView() {
           </a>
         </h2>
         <div className="grid">
-          {P.slice(0, 5).map((p) => (
+          {prods.slice(0, 5).map((p) => (
             <ProductCard key={p.id} p={p} />
           ))}
         </div>
@@ -96,14 +98,12 @@ export function HomeView() {
         </div>
 
         <div className="ban">
-          <a href="#offers" style={{ background: "linear-gradient(135deg,#ff6a1a,#c2410c)" }}>
-            <b>⚡ تخفیف ویژه امروز</b>
-            قطعات منتخب با قیمت شگفت‌انگیز
-          </a>
-          <a href="#cats" style={{ background: "linear-gradient(135deg,#143a66,#0b1f3a)" }}>
-            <b>🔧 ابزار حرفه‌ای</b>
-            آچار، جک و تجهیزات کارگاهی
-          </a>
+          {banners.filter((b) => b.active).map((b) => (
+            <a key={b.id} href={b.href} style={{ background: b.bg }}>
+              <b>{b.t}</b>
+              {b.d}
+            </a>
+          ))}
         </div>
 
         <h2>
@@ -113,7 +113,7 @@ export function HomeView() {
           </a>
         </h2>
         <div className="grid">
-          {P.slice(8, 13).map((p) => (
+          {prods.slice(8, 13).map((p) => (
             <ProductCard key={p.id} p={p} />
           ))}
         </div>

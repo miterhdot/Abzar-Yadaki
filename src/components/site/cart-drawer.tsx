@@ -1,8 +1,7 @@
 "use client";
 
-import { FREE } from "@/data/store";
 import { F } from "@/lib/format";
-import { cartCount, cartTotal, findProduct, useCart, useRoute, useUI } from "@/lib/shop-state";
+import { cartCount, cartTotal, findProduct, useCart, useData, useRoute, useUI } from "@/lib/shop-state";
 
 /** Cart drawer — 1:1 from design (side panel on desktop, bottom sheet on mobile) */
 export function CartDrawer() {
@@ -11,6 +10,7 @@ export function CartDrawer() {
   const items = useCart((s) => s.items);
   const chg = useCart((s) => s.chg);
   const go = useRoute((s) => s.go);
+  const free = useData((s) => s.settings.free);
 
   const t = cartTotal(items);
 
@@ -54,10 +54,10 @@ export function CartDrawer() {
         {t > 0 && (
           <>
             <div className="prog">
-              <i style={{ width: `${Math.min(100, (t / FREE) * 100)}%` }} />
+              <i style={{ width: `${Math.min(100, (t / free) * 100)}%` }} />
             </div>
             <small className="ok">
-              {t >= FREE ? "ارسال شما رایگان است 🎉" : `${F(FREE - t)} تومان تا ارسال رایگان`}
+              {t >= free ? "ارسال شما رایگان است 🎉" : `${F(free - t)} تومان تا ارسال رایگان`}
             </small>
           </>
         )}

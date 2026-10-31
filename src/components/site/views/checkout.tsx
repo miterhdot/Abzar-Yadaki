@@ -1,20 +1,28 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { FREE } from "@/data/store";
+import { STATUS_FA, type OrderLine } from "@/data/store";
 import { F, dg } from "@/lib/format";
-import { cartTotal, findProduct, useCart, useRoute, useUI } from "@/lib/shop-state";
+import { cartTotal, findProduct, useAuth, useCart, useData, useRoute, useUI } from "@/lib/shop-state";
 import { Crumb } from "../bits-helper";
-import { ShopView } from "./shop";
 
 export function CheckoutView() {
   const items = useCart((s) => s.items);
   const clear = useCart((s) => s.clear);
   const go = useRoute((s) => s.go);
-  const [sh, setSh] = useState(80000);
+  const user = useAuth((s) => s.user);
+  const settings = useData((s) => s.settings);
+  const addresses = useData((s) => s.addresses);
+  const coupons = useData((s) => s.coupons);
+
+  const [ship, setShip] = useState<"post" | "peyk">("post");
   const [pm, setPm] = useState("online");
+  const [coupon, setCoupon] = useState("");
+  const [applied, setApplied] = useState<{ code: string; percent: number; max: number } | null>(null);
 
   const t = cartTotal(items);
+  const myAddr = user ? addresses.filter((a) => dg(a.phone) === dg(user.phone)) : [];
+
   if (!items.length)
     return (
       <>
@@ -28,18 +36,50 @@ export function CheckoutView() {
       </>
     );
 
-  const ship = t >= FREE ? 0 : sh;
+  const shipCost = t >= settings.free ? 0 : ship === "peyk" ? settings.shipPeyk : settings.shipPost;
+  const off = applied ? Math.min(Math.round((t * applied.percent) / 100), applied.max) : 0;
+  const payable = Math.max(0, t - off) + shipCost;
+
+  const applyCoupon = () => {
+    const c = coupons.find((x) => x.code === coupon.trim().toUpperCase());
+    if (!c || !c.active) {
+      useUI.getState().say("کد تخفیف معتبر نیست");
+      setApplied(null);
+      return;
+    }
+    const discount = Math.min(Math.round((t * c.percent) / 100), c.max);
+    setApplied({ code: c.code, percent: c.percent, max: c.max });
+    useUI.getState().say(`کد ${c.code} اعمال شد — تخفیف ${F(discount)} تومان ✓`);
+  };
 
   const submit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const m = (e.currentTarget.elements.namedItem("m") as HTMLInputElement).value.trim();
-    if (!/^09\d{9}$/.test(dg(m))) {
+    const el = e.currentTarget.elements;
+    const name = (el.namedItem("n") as HTMLInputElement).value.trim();
+    const m = dg((el.namedItem("m") as HTMLInputElement).value.trim());
+    const addr = (el.namedItem("a") as HTMLTextAreaElement).value.trim();
+    if (!/^09\d{9}$/.test(m)) {
       useUI.getState().say("شماره موبایل معتبر نیست");
       return;
     }
     const code = "AY-" + Math.random().toString(36).slice(2, 8).toUpperCase();
+    const lines: OrderLine[] = items.map((x) => [x.id, x.n]);
+    useData.getState().addOrder({
+      code,
+      name,
+      phone: m,
+      items: items.reduce((a, x) => a + x.n, 0),
+      total: payable,
+      status: "processing",
+      day: 0,
+      lines,
+      addr,
+      pay: pm,
+      ship,
+    });
     useRoute.setState({ lastOrder: code });
     clear();
+    setApplied(null);
     go("done", { q: "" });
   };
 
@@ -53,25 +93,43 @@ export function CheckoutView() {
             <div className="two">
               <label>
                 نام و نام خانوادگی
-                <input required />
+                <input name="n" required defaultValue={user?.name ?? ""} />
               </label>
               <label>
                 موبایل
-                <input name="m" inputMode="numeric" required />
+                <input name="m" inputMode="numeric" required defaultValue={user ? dg(user.phone) : ""} />
               </label>
             </div>
+            {myAddr.length > 0 && (
+              <>
+                <b>آدرس‌های ذخیره‌شده</b>
+                {myAddr.map((a) => (
+                  <label className="opt" key={a.id}>
+                    <input
+                      type="radio"
+                      name="saved"
+                      onChange={() => {
+                        const ta = document.querySelector<HTMLTextAreaElement>('textarea[name="a"]');
+                        if (ta) ta.value = a.text;
+                      }}
+                    />
+                    📍 {a.title} — {a.text.slice(0, 42)}…
+                  </label>
+                ))}
+              </>
+            )}
             <label>
               نشانی کامل
-              <textarea rows={3} required />
+              <textarea name="a" rows={3} required />
             </label>
             <b>روش ارسال</b>
             <label className="opt">
-              <input type="radio" name="sh" checked={sh === 80000} onChange={() => setSh(80000)} />
-              پست پیشتاز · {F(80000)} تومان
+              <input type="radio" name="sh" checked={ship === "post"} onChange={() => setShip("post")} />
+              پست پیشتاز · {F(settings.shipPost)} تومان
             </label>
             <label className="opt">
-              <input type="radio" name="sh" checked={sh === 120000} onChange={() => setSh(120000)} />
-              پیک (همان‌روز) · {F(120000)} تومان
+              <input type="radio" name="sh" checked={ship === "peyk"} onChange={() => setShip("peyk")} />
+              پیک (همان‌روز) · {F(settings.shipPeyk)} تومان
             </label>
             <b>روش پرداخت</b>
             <label className="opt">
@@ -101,18 +159,47 @@ export function CheckoutView() {
               );
             })}
             <hr style={{ borderColor: "var(--line)" }} />
+            <label style={{ fontSize: 13, color: "var(--mute)", display: "grid", gap: 4, margin: "6px 0" }}>
+              کد تخفیف
+              <span style={{ display: "flex", gap: 6 }}>
+                <input
+                  value={coupon}
+                  onChange={(e) => setCoupon(e.target.value)}
+                  placeholder="مثلاً WELCOME"
+                  style={{
+                    flex: 1,
+                    padding: 9,
+                    border: "1px solid var(--line)",
+                    borderRadius: 10,
+                    font: "inherit",
+                    background: "var(--card)",
+                    color: "var(--ink)",
+                    direction: "ltr",
+                  }}
+                />
+                <button className="btn ghost" type="button" onClick={applyCoupon} style={{ padding: "8px 14px" }}>
+                  اعمال
+                </button>
+              </span>
+            </label>
             <div id="ckt">
               <div className="sum">
                 <span>جمع کالاها</span>
                 <span>{F(t)}</span>
               </div>
+              {applied && (
+                <div className="sum" style={{ color: "var(--ok)" }}>
+                  <span>تخفیف ({applied.code})</span>
+                  <span>−{F(off)}</span>
+                </div>
+              )}
               <div className="sum">
                 <span>ارسال</span>
-                <span>{ship ? F(ship) : "رایگان"}</span>
+                <span>{shipCost ? F(shipCost) : "رایگان"}</span>
               </div>
               <div className="sum">
                 <b>مبلغ قابل پرداخت</b>
-                <b>{F(t + ship)} تومان</b>
+                <b>{F(payable)} تومان</b>
               </div>
             </div>
           </div>
@@ -124,16 +211,22 @@ export function CheckoutView() {
 
 export function DoneView() {
   const last = useRoute((s) => s.lastOrder);
+  const status = useData((s) => s.orders.find((o) => o.code === last)?.status ?? "processing");
   return (
     <div className="w" style={{ textAlign: "center", padding: "50px 0" }}>
       <div style={{ fontSize: 60 }}>✅</div>
       <h2 style={{ justifyContent: "center" }}>سفارش شما ثبت شد</h2>
       <p>
-        کد پیگیری: <b>{last}</b>
+        کد پیگیری: <b>{last}</b> · وضعیت فعلی: <span className="badge b-off">{STATUS_FA[status]}</span>
       </p>
-      <a className="btn" href="#home">
-        بازگشت به صفحه اول
-      </a>
+      <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
+        <a className="btn" href="#track" onClick={() => useRoute.getState().go("track", { q: last })}>
+          📦 پیگیری سفارش
+        </a>
+        <a className="btn ghost" href="#home">
+          بازگشت به صفحه اول
+        </a>
+      </div>
     </div>
   );
 }

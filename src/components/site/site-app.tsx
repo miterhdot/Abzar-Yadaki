@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useCart, useRoute } from "@/lib/shop-state";
+import { rehydrateAll, useCart, useRoute } from "@/lib/shop-state";
 import { AnnBar, Footer, Header } from "./chrome";
 import { CartDrawer } from "./cart-drawer";
 import { MobileBar, Toast } from "./mobile-bar";
@@ -13,6 +13,12 @@ import { OffersView } from "./views/offers";
 import { AboutView } from "./views/about";
 import { ContactView } from "./views/contact";
 import { CheckoutView, DoneView } from "./views/checkout";
+import { AuthView } from "./views/auth";
+import { AccountView } from "./views/account";
+import { TrackView } from "./views/track";
+import { WishlistView } from "./views/wishlist";
+import { FaqView, TermsView, ReturnsView } from "./views/static";
+import { NotFoundView } from "./views/notfound";
 import { AdminApp } from "./admin/admin-app";
 
 export default function SiteApp() {
@@ -20,9 +26,9 @@ export default function SiteApp() {
   const pid = useRoute((s) => s.pid);
   const setFromHash = useRoute((s) => s.setFromHash);
 
-  /* hydrate persisted cart after mount (avoids SSR mismatch) */
+  /* hydrate persisted stores after mount (avoids SSR mismatch) */
   useEffect(() => {
-    useCart.persist.rehydrate();
+    rehydrateAll();
   }, []);
 
   /* hash router sync + initial */
@@ -72,6 +78,14 @@ export default function SiteApp() {
         {page === "contact" && <ContactView />}
         {page === "checkout" && <CheckoutView />}
         {page === "done" && <DoneView />}
+        {page === "auth" && <AuthView />}
+        {page === "account" && <AccountView />}
+        {page === "track" && <TrackView />}
+        {page === "wishlist" && <WishlistView />}
+        {page === "faq" && <FaqView />}
+        {page === "terms" && <TermsView />}
+        {page === "returns" && <ReturnsView />}
+        {page === "notfound" && <NotFoundView />}
       </main>
       <Footer />
       <CartDrawer />
