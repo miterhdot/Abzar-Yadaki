@@ -16,6 +16,16 @@ export function MobileBar() {
     return cur === h ? "on" : "";
   };
 
+  /* keyboard: Esc closes the menu sheet */
+  useEffect(() => {
+    if (!sheet) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") msh(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [sheet, msh]);
+
   return (
     <>
       <div className="tb" id="tb">

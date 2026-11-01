@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { F } from "@/lib/format";
 import { cartCount, cartTotal, findProduct, useCart, useData, useRoute, useUI } from "@/lib/shop-state";
 
@@ -12,10 +13,20 @@ export function CartDrawer() {
   const go = useRoute((s) => s.go);
   const free = useData((s) => s.settings.free);
 
+  /* keyboard: Esc closes the drawer */
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") dr(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, dr]);
+
   const t = cartTotal(items);
 
   return (
-    <aside className={"dr" + (open ? " open" : "")}>
+    <aside className={"dr" + (open ? " open" : "")} role="dialog" aria-modal="true" aria-label="سبد خرید">
       <div style={{ display: "flex", justifyContent: "space-between" }}>
         <b>سبد خرید</b>
         <button className="btn ghost" type="button" onClick={() => dr(false)}>

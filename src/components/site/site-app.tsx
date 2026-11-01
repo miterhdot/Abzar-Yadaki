@@ -17,7 +17,7 @@ import { AuthView } from "./views/auth";
 import { AccountView } from "./views/account";
 import { TrackView } from "./views/track";
 import { WishlistView } from "./views/wishlist";
-import { FaqView, TermsView, ReturnsView } from "./views/static";
+import { FaqView, TermsView, PrivacyView, CookiesView, RefundView, ReturnsView } from "./views/static";
 import { NotFoundView } from "./views/notfound";
 import { AdminApp } from "./admin/admin-app";
 
@@ -85,6 +85,9 @@ export default function SiteApp() {
         {page === "faq" && <FaqView />}
         {page === "terms" && <TermsView />}
         {page === "returns" && <ReturnsView />}
+        {page === "privacy" && <PrivacyView />}
+        {page === "cookies" && <CookiesView />}
+        {page === "refund" && <RefundView />}
         {page === "notfound" && <NotFoundView />}
       </main>
       <Footer />

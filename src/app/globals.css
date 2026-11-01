@@ -16,6 +16,8 @@
 *{box-sizing:border-box}html{scroll-padding-top:70px;-webkit-tap-highlight-color:transparent}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:Vazirmatn,Tahoma,sans-serif;line-height:1.8}
 a{color:inherit;text-decoration:none}button{font:inherit;cursor:pointer}
+/* keyboard precision: visible focus only for keyboard navigation (same amber as .fm focus) */
+a:focus-visible,button:focus-visible,select:focus-visible,summary:focus-visible,input:focus-visible,textarea:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--or);outline-offset:2px}
 .w{max-width:1160px;margin:auto;padding:0 16px}
 header{background:var(--navy);color:#fff;position:sticky;top:0;z-index:20}
 .hd{display:flex;align-items:center;gap:14px;padding:10px 16px;max-width:1160px;margin:auto}
@@ -51,7 +53,7 @@ h2{font-size:22px;margin:36px 0 14px;display:flex;justify-content:space-between;
 .pd .box{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin:12px 0}
 .pd ul{padding:0 18px;margin:6px 0;color:var(--mute)}.qty{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}.qty button{border:0;background:var(--card);color:var(--ink);padding:6px 14px}.qty span{padding:6px 12px}
 .ok{color:var(--ok);font-weight:600}
-.dr{position:fixed;inset:0 auto 0 0;width:min(380px,100%);background:var(--card);z-index:40;padding:16px;transform:translateX(-105%);transition:.3s;overflow:auto;box-shadow:10px 0 40px #0006;padding-top:calc(16px + env(safe-area-inset-top,0px))}.dr.open{transform:none}
+.dr{position:fixed;inset:0 auto 0 0;width:min(380px,100%);background:var(--card);z-index:40;padding:16px;transform:translateX(-105%);transition:transform .3s,visibility 0s .3s;visibility:hidden;overflow:auto;box-shadow:10px 0 40px #0006;padding-top:calc(16px + env(safe-area-inset-top,0px))}.dr.open{transform:none;visibility:visible;transition:transform .3s}
 .ci{display:flex;justify-content:space-between;gap:8px;padding:10px 0;border-bottom:1px solid var(--line);font-size:14px}
 footer{background:var(--navy);color:#b9c9e0;margin-top:48px;padding:28px 0 20px;font-size:14px}footer .w{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:18px}footer b{color:#fff}
 .sticky{display:none}

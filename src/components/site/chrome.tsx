@@ -95,7 +95,7 @@ export function Footer() {
         <div>
           <b>خدمات</b>
           <br />
-          گارانتی اصالت · ۷ روز بازگشت · پشتیبانی واتساپ
+          گارانتی اصالت · ۷ روز بازگشت · پشتیبانی فنی
         </div>
         <div>
           <b>حساب کاربری</b>
@@ -121,6 +121,8 @@ export function Footer() {
           <br />
           <a href="#faq">سوالات متداول</a> · <a href="#terms">قوانین</a> · <a href="#returns">رویه بازگشت</a> ·{" "}
           <a href="#admin">پنل مدیریت</a>
+          <br />
+          <a href="#privacy">حریم خصوصی</a> · <a href="#cookies">سیاست کوکی</a> · <a href="#refund">شرایط بازگشت پول</a>
         </div>
       </div>
     </footer>

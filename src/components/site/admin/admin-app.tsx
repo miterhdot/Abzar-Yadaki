@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useState, type FormEvent } from "react";
+import { Fragment, useEffect, useState, type FormEvent } from "react";
 import {
   C, CUSTOMERS, MONTH_SALES, OrderStatus, Product, STATUS_FA, WEEK_SALES,
 } from "@/data/store";
@@ -122,8 +122,17 @@ function ProductForm({ init, onClose }: { init?: Product; onClose: () => void })
     onClose();
   };
 
+  /* keyboard: Esc closes the modal */
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
   return (
-    <div className="mod" onClick={onClose}>
+    <div className="mod" onClick={onClose} role="dialog" aria-modal="true">
       <div className="panel fm" onClick={(e) => e.stopPropagation()}>
         <b>{init ? "ویرایش محصول" : "افزودن محصول جدید"}</b>
         <div className="two">
@@ -290,7 +299,7 @@ export function AdminApp() {
                   ))}
                 </div>
               </div>
-              <div className="panel">
+              <div className="panel" style={{ overflowX: "auto" }}>
                 <b>موجودی بحرانی</b>
                 <table className="adm-table">
                   <tbody>
@@ -324,7 +333,7 @@ export function AdminApp() {
                 </table>
               </div>
             </div>
-            <div className="panel" style={{ marginTop: 14 }}>
+            <div className="panel" style={{ marginTop: 14, overflowX: "auto" }}>
               <b>آخرین سفارش‌ها</b>
               <table className="adm-table">
                 <thead>
@@ -613,7 +622,7 @@ export function AdminApp() {
               <h1>کدهای تخفیف ({F(coupons.length)})</h1>
             </div>
             <CouponAdd />
-            <div className="panel" style={{ padding: 8, marginTop: 12 }}>
+            <div className="panel" style={{ padding: 8, marginTop: 12, overflowX: "auto" }}>
               <table className="adm-table">
                 <thead>
                   <tr>
@@ -872,7 +881,19 @@ function FragmentRow({
 }) {
   return (
     <Fragment key={code}>
-      <tr onClick={onToggle} style={{ cursor: "pointer" }}>
+      <tr
+        onClick={onToggle}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onToggle();
+          }
+        }}
+        tabIndex={0}
+        role="button"
+        aria-expanded={open}
+        style={{ cursor: "pointer" }}
+      >
         {cells.map((c, i) => (
           <td key={i}>{c}</td>
         ))}

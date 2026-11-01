@@ -20,7 +20,7 @@
 │ L5  قالب مشترک         src/components/site/chrome.tsx│  هدر/فوتر/جستجو/نوار اعلان
 │                        cart-drawer.tsx / mobile-bar │
 ├─────────────────────────────────────────────────────┤
-│ L6  صفحات مشتری        src/components/site/views/    │  ۱۸ نمای hash
+│ L6  صفحات مشتری        src/components/site/views/    │  ۲۱ نمای hash
 ├─────────────────────────────────────────────────────┤
 │ L7  پنل ادمین          src/components/site/admin/    │  ورود + ۱۰ تب
 └─────────────────────────────────────────────────────┘
@@ -47,7 +47,10 @@
 | `#track` | پیگیری سفارش (کد سفارش + موبایل) | `views/track.tsx` |
 | `#wishlist` | علاقه‌مندی‌ها | `views/wishlist.tsx` |
 | `#faq` | سوالات متداول | `views/static.tsx` |
-| `#terms` | قوانین و مقررات + حریم خصوصی | `views/static.tsx` |
+| `#terms` | قوانین و مقررات (دستور ۱۴) | `views/static.tsx` |
+| `#privacy` | حریم خصوصی (دستور ۱۴) | `views/static.tsx` |
+| `#cookies` | سیاست کوکی (دستور ۱۴) | `views/static.tsx` |
+| `#refund` | شرایط بازگشت پول (دستور ۱۴) | `views/static.tsx` |
 | `#returns` | رویه بازگرداندن کالا | `views/static.tsx` |
 | hash ناشناخته | صفحه ۴۰۴ | `views/notfound.tsx` |
 | `#admin` | پنل مدیریت (با گیت ورود) | `admin/admin-app.tsx` |
@@ -73,7 +76,7 @@
 
 - **AnnBar**: نوار اعلان بالای سایت.
 - **Header**: لوگو، جستجو، منو، آیکون قلب → `#wishlist`، حساب (کاربر؟ `#account` : `#auth`)، سبد → کشو، کلید حالت تاریب، «پیگیری سفارش».
-- **Footer**: لینک‌های `#account`، `#track`، `#wishlist`، `#faq`، `#terms`، `#returns`.
+- **Footer**: لینک‌های `#account`، `#track`، `#wishlist`، `#faq`، `#terms`، `#returns`، `#privacy`، `#cookies`، `#refund`.
 - **CartDrawer / MobileBar / Toast**: کشوی سبد، نوار پایین موبایل، توست سراسری (`useUI.say`).
 
 ## ۵. پنل ادمین (admin-app.tsx)
