@@ -52,3 +52,5 @@ prompt
 server.log
 # Skills directory
 /skills/
+# اسکرین‌شات‌های چسبانده‌شدهٔ مدیر (شامل اطلاعات شخصی — طبق مصوبه ۵ وارد مخزن عمومی نمی‌شود)
+/upload/pasted_*
