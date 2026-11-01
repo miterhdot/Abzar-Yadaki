@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { rehydrateAll, useCart, useRoute } from "@/lib/shop-state";
+import MobileApp from "@/mobile/MobileApp";
 import { AnnBar, Footer, Header } from "./chrome";
 import { CartDrawer } from "./cart-drawer";
 import { MobileBar, Toast } from "./mobile-bar";
@@ -21,10 +22,42 @@ import { FaqView, TermsView, PrivacyView, CookiesView, RefundView, ReturnsView }
 import { NotFoundView } from "./views/notfound";
 import { AdminApp } from "./admin/admin-app";
 
+/* ─────────── اپلیکیشن موبایل (دستور ۱۵) — نقطه اتصال واحد ───────────
+   ۱) هر مسیر #app-* روی هر نمایشگری → اپ (در دسکتاپ مثل قاب گوشی وسط صفحه — خودِ طراحی)
+   ۲) روی نمایشگر تلفن (≤۷۶۷px) → اپ به‌جای وب، به‌جز مسیرهای WEB_KEEP که همان نمای وب می‌مانند
+      (تسویه‌حساب، ادمین، حساب، علاقه‌مندی‌ها، صفحات ثابت و...) — سیم‌کشی واقعی بدون ساخت نمای تکراری */
+
+const useIsPhone = (): boolean =>
+  useSyncExternalStore(
+    (cb) => {
+      const mq = window.matchMedia("(max-width: 767px)");
+      mq.addEventListener("change", cb);
+      return () => mq.removeEventListener("change", cb);
+    },
+    () => window.matchMedia("(max-width: 767px)").matches,
+    () => false
+  );
+
+const useHash = (): string =>
+  useSyncExternalStore(
+    (cb) => {
+      window.addEventListener("hashchange", cb);
+      return () => window.removeEventListener("hashchange", cb);
+    },
+    () => window.location.hash,
+    () => ""
+  );
+
+/* مسیرهای وب که روی موبایل هم به‌صورت وب می‌مانند (خارج از گرافیک اپ) */
+const WEB_KEEP =
+  /^#(admin|checkout|done|offers|about|contact|auth|account|track|wishlist|faq|terms|returns|privacy|cookies|refund|notfound)$/;
+
 export default function SiteApp() {
   const page = useRoute((s) => s.page);
   const pid = useRoute((s) => s.pid);
   const setFromHash = useRoute((s) => s.setFromHash);
+  const isPhone = useIsPhone();
+  const hash = useHash();
 
   /* hydrate persisted stores after mount (avoids SSR mismatch) */
   useEffect(() => {
@@ -54,6 +87,13 @@ export default function SiteApp() {
   useEffect(() => {
     document.body.dataset.pg = page === "product" ? "prod" : page;
   }, [page]);
+
+  /* اپلیکیشن موبایل: مسیر اختصاصی #app-* یا نمایشگر تلفن (به‌جز مسیرهای وبِ حفظ‌شده) —
+     بعد از همه هوک‌ها تا قانون هوک‌های ری‌اکت حفظ شود */
+  const appActive = hash.startsWith("#app") || (isPhone && !WEB_KEEP.test(hash || "#home"));
+  if (appActive) {
+    return <MobileApp />;
+  }
 
   if (page === "admin") {
     return (
