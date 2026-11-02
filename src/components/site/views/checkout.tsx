@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { STATUS_FA, type OrderLine } from "@/data/store";
 import { F, dg } from "@/lib/format";
 import { cartTotal, findProduct, useAuth, useCart, useData, useRoute, useUI } from "@/lib/shop-state";
+import { dbCreateOrder, dbTrackOrder } from "@/lib/supabase";
 import { Crumb } from "../bits-helper";
 
 export function CheckoutView() {
@@ -19,6 +20,7 @@ export function CheckoutView() {
   const [pm, setPm] = useState("online");
   const [coupon, setCoupon] = useState("");
   const [applied, setApplied] = useState<{ code: string; percent: number; max: number } | null>(null);
+  const [busy, setBusy] = useState(false);
 
   const t = cartTotal(items);
   const myAddr = user ? addresses.filter((a) => dg(a.phone) === dg(user.phone)) : [];
@@ -52,7 +54,7 @@ export function CheckoutView() {
     useUI.getState().say(`کد ${c.code} اعمال شد — تخفیف ${F(discount)} تومان ✓`);
   };
 
-  const submit = (e: FormEvent<HTMLFormElement>) => {
+  const submit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const el = e.currentTarget.elements;
     const name = (el.namedItem("n") as HTMLInputElement).value.trim();
@@ -62,25 +64,57 @@ export function CheckoutView() {
       useUI.getState().say("شماره موبایل معتبر نیست");
       return;
     }
-    const code = "AY-" + Math.random().toString(36).slice(2, 8).toUpperCase();
-    const lines: OrderLine[] = items.map((x) => [x.id, x.n]);
-    useData.getState().addOrder({
-      code,
+    setBusy(true);
+    /* ثبت واقعی — قیمت‌گذاری فقط سمت سرور (تابع امن create_order، ضد دستکاری) */
+    const res = await dbCreateOrder({
       name,
       phone: m,
-      items: items.reduce((a, x) => a + x.n, 0),
-      total: payable,
-      status: "processing",
-      day: 0,
-      lines,
-      addr,
-      pay: pm,
+      items: items.map((x) => ({ id: x.id, qty: x.n })),
+      pay: pm === "cod" ? "cod" : "online",
       ship,
+      addr,
+      coupon: applied?.code,
     });
-    useRoute.setState({ lastOrder: code });
-    clear();
-    setApplied(null);
-    go("done", { q: "" });
+    if (res.ok) {
+      const tr = await dbTrackOrder(res.code, m);
+      useUI.getState().say(
+        tr.ok
+          ? `سفارش ثبت شد ✓ — مبلغ واقعی: ${F(tr.order.total)} تومان`
+          : "سفارش ثبت شد ✓"
+      );
+      useRoute.setState({ lastOrder: res.code });
+      clear();
+      setApplied(null);
+      setBusy(false);
+      go("done", { q: "" });
+      return;
+    }
+    setBusy(false);
+    if (res.error === "db-off") {
+      /* دیتابیس در دسترس نیست — ثبت نمایشی مصوب (مصوبه ۱۰) با اعلام صریح */
+      const code = "AY-" + Math.random().toString(36).slice(2, 8).toUpperCase();
+      const lines: OrderLine[] = items.map((x) => [x.id, x.n]);
+      useData.getState().addOrder({
+        code,
+        name,
+        phone: m,
+        items: items.reduce((a, x) => a + x.n, 0),
+        total: payable,
+        status: "processing",
+        day: 0,
+        lines,
+        addr,
+        pay: pm,
+        ship,
+      });
+      useUI.getState().say("اتصال دیتابیس برقرار نیست — سفارش به‌صورت نمایشی ثبت شد");
+      useRoute.setState({ lastOrder: code });
+      clear();
+      setApplied(null);
+      go("done", { q: "" });
+      return;
+    }
+    useUI.getState().say(res.error);
   };
 
   return (
@@ -140,8 +174,8 @@ export function CheckoutView() {
               <input type="radio" name="pm" checked={pm === "cod"} onChange={() => setPm("cod")} />
               پرداخت در محل
             </label>
-            <button className="btn" style={{ padding: 13 }} type="submit">
-              ثبت سفارش
+            <button className="btn" style={{ padding: 13 }} type="submit" disabled={busy}>
+              {busy ? "در حال ثبت…" : "ثبت سفارش"}
             </button>
           </form>
           <div className="panel">

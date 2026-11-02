@@ -3,39 +3,79 @@
 import { useState, type FormEvent } from "react";
 import { F, dg, fa } from "@/lib/format";
 import { useAuth, useData, useRoute, useUI } from "@/lib/shop-state";
+import { dbOtpSend, dbOtpVerify, dbProfile, dbReady, dbSaveName } from "@/lib/supabase";
 import { LogoMark } from "../bits";
 import { Crumb } from "../bits-helper";
 
 type Step = "phone" | "code" | "name";
 
-/** ورود / ثبت‌نام با کد یکبارمصرف پیامکی (نمایشی) */
+/** ورود / ثبت‌نام با کد یکبارمصرف — واقعی با Supabase Auth (هش رمز/نشست امن سمت سرور)؛
+ *  اگر سرویس پیامک هنوز فعال نباشد → حالت نمایشی مصوب با اعلام صریح */
 export function AuthView() {
   const go = useRoute((s) => s.go);
   const [step, setStep] = useState<Step>("phone");
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
   const [sent, setSent] = useState("");
+  const [realOtp, setRealOtp] = useState(false);
+  const [busy, setBusy] = useState(false);
 
-  const sendCode = (e: FormEvent<HTMLFormElement>) => {
+  const sendCode = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const m = dg(phone.trim());
     if (!/^09\d{9}$/.test(m)) {
       useUI.getState().say("شماره موبایل معتبر نیست");
       return;
     }
+    setBusy(true);
+    const res = await dbOtpSend(m);
+    setBusy(false);
+    if (res.ok) {
+      setRealOtp(true);
+      setStep("code");
+      useUI.getState().say("کد یکبارمصرف پیامک شد ✓");
+      return;
+    }
+    /* سرویس پیامک فعال نیست یا اتصال نیست — حالت نمایشی با اعلام صریح */
+    setRealOtp(false);
     const c = String(Math.floor(10000 + Math.random() * 90000));
     setSent(c);
     setStep("code");
-    useUI.getState().say(`کد یکبارمصرف (نمایشی): ${fa(c)}`);
+    useUI.getState().say(
+      res.reason === "sms-off"
+        ? "سرویس پیامک هنوز فعال نیست — ورود در حالت نمایشی"
+        : res.reason === "db-off"
+          ? "اتصال دیتابیس برقرار نیست — ورود در حالت نمایشی"
+          : `خطا در ارسال پیامک — ورود در حالت نمایشی (${res.error ?? ""})`
+    );
   };
 
-  const verify = (e: FormEvent<HTMLFormElement>) => {
+  const verify = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    const m = dg(phone.trim());
+    if (realOtp) {
+      setBusy(true);
+      const v = await dbOtpVerify(m, dg(code.trim()));
+      setBusy(false);
+      if (!v.ok) {
+        useUI.getState().say(v.error === "db-off" ? "اتصال دیتابیس برقرار نیست" : "کد وارد شده صحیح نیست یا منقضی شده");
+        return;
+      }
+      const p = await dbProfile();
+      const name = p?.name?.trim();
+      if (name) {
+        useAuth.getState().login({ name, phone: p?.phone ? dg(p.phone) : m });
+        useUI.getState().say(`خوش آمدید ${name} ✓`);
+        go("account", { q: "" });
+      } else {
+        setStep("name");
+      }
+      return;
+    }
     if (dg(code.trim()) !== sent) {
       useUI.getState().say("کد وارد شده صحیح نیست");
       return;
     }
-    const m = dg(phone.trim());
     const known = useData.getState().users.find((u) => dg(u.phone) === m);
     if (known) {
       useAuth.getState().login({ name: known.name, phone: m });
@@ -46,7 +86,7 @@ export function AuthView() {
     }
   };
 
-  const register = (e: FormEvent<HTMLFormElement>) => {
+  const register = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const name = (e.currentTarget.elements.namedItem("n") as HTMLInputElement).value.trim();
     if (name.length < 3) {
@@ -54,6 +94,14 @@ export function AuthView() {
       return;
     }
     const m = dg(phone.trim());
+    if (realOtp && dbReady()) {
+      /* ذخیرهٔ نام روی پروفایل دیتابیس (RLS: فقط ردیف خود کاربر) */
+      const s = await dbSaveName(name);
+      if (!s.ok && s.error !== "db-off") {
+        useUI.getState().say(s.error);
+        return;
+      }
+    }
     useData.getState().upsertUser(name, m);
     useAuth.getState().login({ name, phone: m });
     useUI.getState().say("حساب شما ساخته شد ✓");
@@ -91,8 +139,8 @@ export function AuthView() {
                 required
               />
             </label>
-            <button className="btn" style={{ padding: 12 }} type="submit">
-              ارسال کد یکبارمصرف
+            <button className="btn" style={{ padding: 12 }} type="submit" disabled={busy}>
+              {busy ? "در حال ارسال…" : "ارسال کد یکبارمصرف"}
             </button>
             <small style={{ color: "var(--mute)" }}>
               ورود به معنای پذیرش <a href="#terms" style={{ color: "var(--or)" }}>قوانین و مقررات</a> است.

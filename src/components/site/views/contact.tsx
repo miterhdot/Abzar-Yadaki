@@ -3,6 +3,7 @@
 import { FREE } from "@/data/store";
 import { F, dg } from "@/lib/format";
 import { useData, useUI } from "@/lib/shop-state";
+import { dbSendMessage } from "@/lib/supabase";
 import { Pn } from "../bits";
 import { Crumb } from "../bits-helper";
 
@@ -15,7 +16,7 @@ export function ContactView() {
         <div className="lay">
           <form
             className="panel fm"
-            onSubmit={(e) => {
+            onSubmit={async (e) => {
               e.preventDefault();
               const el = e.currentTarget.elements;
               const m = dg((el.namedItem("m") as HTMLInputElement).value.trim());
@@ -23,17 +24,27 @@ export function ContactView() {
                 useUI.getState().say("شماره موبایل معتبر نیست");
                 return;
               }
-              useData.getState().addMsg({
-                id: Date.now(),
+              const msg = {
                 name: (el.namedItem("n") as HTMLInputElement).value.trim(),
                 phone: m,
                 subject: (el.namedItem("s") as HTMLSelectElement).value,
                 text: (el.namedItem("t") as HTMLTextAreaElement).value.trim(),
-                unread: true,
-                day: 0,
-              });
-              useUI.getState().say("پیام شما ثبت شد و در اسرع وقت پاسخ داده می‌شود ✓");
-              e.currentTarget.reset();
+              };
+              /* ثبت واقعی در دیتابیس (RLS طول فیلدها را اعتبارسنجی می‌کند) */
+              const res = await dbSendMessage(msg);
+              if (res.ok) {
+                useUI.getState().say("پیام شما در دیتابیس ثبت شد و در اسرع وقت پاسخ داده می‌شود ✓");
+                e.currentTarget.reset();
+                return;
+              }
+              if (res.error === "db-off") {
+                /* ثبت نمایشی محلی */
+                useData.getState().addMsg({ id: Date.now(), ...msg, unread: true, day: 0 });
+                useUI.getState().say("اتصال دیتابیس برقرار نیست — پیام به‌صورت نمایشی ثبت شد");
+                e.currentTarget.reset();
+                return;
+              }
+              useUI.getState().say(res.error);
             }}
           >
             <div className="two">

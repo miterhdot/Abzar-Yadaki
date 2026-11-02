@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
-import { STATUS_FA, OrderStatus } from "@/data/store";
+import { useEffect, useState, type FormEvent } from "react";
+import { STATUS_FA, OrderStatus, type Order } from "@/data/store";
 import { F, dg, fa } from "@/lib/format";
 import { findProduct, useAuth, useData, useRoute, useUI } from "@/lib/shop-state";
+import { dbHasSession, dbMyOrders, dbSaveName, dbSignOut } from "@/lib/supabase";
 import { Crumb } from "../bits-helper";
 
 const dayFa = (d: number) => (d === 0 ? "امروز" : d === 1 ? "دیروز" : `${F(d)} روز پیش`);
@@ -23,6 +24,21 @@ export function AccountView() {
   const go = useRoute((s) => s.go);
   const [tab, setTab] = useState<Tab>("orders");
   const [open, setOpen] = useState("");
+  const [dbOrders, setDbOrders] = useState<Order[]>([]);
+
+  /* سفارش‌های واقعی کاربر از دیتابیس (RLS: فقط سفارش‌های خودش) */
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      if (await dbHasSession()) {
+        const rows = await dbMyOrders();
+        if (alive) setDbOrders(rows);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [user?.phone]);
 
   if (!user)
     return (
@@ -41,7 +57,12 @@ export function AccountView() {
       </>
     );
 
-  const mine = orders.filter((o) => dg(o.phone) === dg(user.phone));
+  const mine: Order[] = [
+    ...dbOrders,
+    ...orders.filter(
+      (o) => dg(o.phone) === dg(user.phone) && !dbOrders.some((d) => d.code === o.code)
+    ),
+  ];
 
   return (
     <>
@@ -58,6 +79,8 @@ export function AccountView() {
             className="btn ghost"
             type="button"
             onClick={() => {
+              void dbSignOut();
+              setDbOrders([]);
               useAuth.getState().logout();
               useUI.getState().say("از حساب خارج شدید");
               go("home", { q: "" });
@@ -215,12 +238,20 @@ function AddrTab() {
 function InfoTab() {
   const user = useAuth((s) => s.user)!;
 
-  const save = (e: FormEvent<HTMLFormElement>) => {
+  const save = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const name = (e.currentTarget.elements.namedItem("n") as HTMLInputElement).value.trim();
     if (name.length < 3) {
       useUI.getState().say("نام را کامل وارد کنید");
       return;
+    }
+    /* ذخیرهٔ هم‌زمان روی پروفایل دیتابیس (اگر نشست واقعی باشد) */
+    if (await dbHasSession()) {
+      const s = await dbSaveName(name);
+      if (!s.ok && s.error !== "db-off") {
+        useUI.getState().say(s.error);
+        return;
+      }
     }
     useData.getState().upsertUser(name, user.phone);
     useAuth.getState().login({ ...user, name });

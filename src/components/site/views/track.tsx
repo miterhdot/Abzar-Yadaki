@@ -3,7 +3,8 @@
 import { useState, type FormEvent } from "react";
 import { STATUS_FA, OrderStatus } from "@/data/store";
 import { F, dg, fa } from "@/lib/format";
-import { findProduct, useData, useRoute } from "@/lib/shop-state";
+import { findProduct, useData, useRoute, useUI } from "@/lib/shop-state";
+import { dbReady, dbTrackOrder, type TrackedOrder } from "@/lib/supabase";
 import { Crumb } from "../bits-helper";
 
 const STEPS: [string, string][] = [
@@ -18,7 +19,7 @@ const stepOf = (s: OrderStatus): number =>
 
 const dayFa = (d: number) => (d === 0 ? "امروز" : d === 1 ? "دیروز" : `${F(d)} روز پیش`);
 
-/** پیگیری سفارش با کد پیگیری */
+/** پیگیری سفارش با کد پیگیری + موبایل (دیتابیس واقعی؛ در نبود اتصال → جست‌وجوی نمایشی) */
 export function TrackView() {
   const q = useRoute((s) => s.q);
   const orders = useData((s) => s.orders);
@@ -26,11 +27,35 @@ export function TrackView() {
   const [phone, setPhone] = useState("");
   const [result, setResult] = useState<"none" | OrderStatus | "invalid">("none");
   const [found, setFound] = useState("");
+  const [dbHit, setDbHit] = useState<TrackedOrder | null>(null);
+  const [busy, setBusy] = useState(false);
 
-  const search = (e: FormEvent<HTMLFormElement>) => {
+  const search = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const c = code.trim().toUpperCase();
     const m = dg(phone.trim());
+    if (dbReady()) {
+      /* پیگیری واقعی — موبایل الزامی (ضد شناسایی سفارش دیگران) */
+      if (!m) {
+        useUI.getState().say("برای پیگیری آنلاین، موبایل همان سفارش الزامی است");
+        return;
+      }
+      setBusy(true);
+      setDbHit(null);
+      const res = await dbTrackOrder(c, m);
+      setBusy(false);
+      if (res.ok) {
+        setDbHit(res.order);
+        setFound(res.order.code);
+        setResult(res.order.status);
+        return;
+      }
+      if (res.error !== "db-off") {
+        setResult("invalid");
+        return;
+      }
+      /* اتصال نبود — ادامه با جست‌وجوی نمایشی */
+    }
     const o = orders.find((x) => x.code === c);
     if (!o) {
       setResult("invalid");
@@ -40,11 +65,12 @@ export function TrackView() {
       setResult("invalid");
       return;
     }
+    setDbHit(null);
     setFound(c);
     setResult(o.status);
   };
 
-  const o = found ? orders.find((x) => x.code === found) : undefined;
+  const o = found && !dbHit ? orders.find((x) => x.code === found) : undefined;
   const cur = result !== "none" && result !== "invalid" ? stepOf(result) : -1;
 
   return (
@@ -65,7 +91,7 @@ export function TrackView() {
               />
             </label>
             <label>
-              موبایل (اختیاری)
+              موبایل همان سفارش
               <input
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
@@ -74,11 +100,17 @@ export function TrackView() {
               />
             </label>
           </div>
-          <button className="btn" style={{ padding: 12 }} type="submit">
-            پیگیری
+          <button className="btn" style={{ padding: 12 }} type="submit" disabled={busy}>
+            {busy ? "در حال جست‌وجو…" : "پیگیری"}
           </button>
-          <small style={{ color: "var(--mute)" }}>
-            نمونه برای تست: <b style={{ direction: "ltr", display: "inline-block" }}>AY-K3M9X2</b> یا کد سفارش خودتان پس از خرید.
+          <small style={{ color: "var(--mute)", display: "grid", gap: 4 }}>
+            <span>پیگیری آنلاین = کد پیگیری + موبایل همان سفارش (محرمانه).</span>
+            {!dbReady() && (
+              <span>
+                اتصال دیتابیس برقرار نیست — جست‌وجو در داده‌های نمایشی این دستگاه. نمونهٔ نمایشی:{" "}
+                <b style={{ direction: "ltr", display: "inline-block" }}>AY-K3M9X2</b>
+              </span>
+            )}
           </small>
         </form>
 
@@ -87,6 +119,90 @@ export function TrackView() {
             <div style={{ fontSize: 36 }}>🔍</div>
             <b>سفارشی با این کد پیدا نشد</b>
             <p style={{ color: "var(--mute)", margin: "6px 0 0" }}>کد پیگیری را از پیامک تأیید سفارش بررسی کنید یا با پشتیبانی تماس بگیرید.</p>
+          </div>
+        )}
+
+        {dbHit && (
+          <div className="panel" style={{ marginTop: 14 }}>
+            <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+              <b style={{ direction: "ltr" }}>{dbHit.code}</b>
+              <span className={"badge " + (dbHit.status === "done" ? "b-ok" : dbHit.status === "sent" ? "b-warn" : dbHit.status === "processing" ? "b-off" : "b-err")}>
+                {STATUS_FA[dbHit.status]}
+              </span>
+              <small style={{ color: "var(--mute)" }}>
+                {new Date(dbHit.created_at).toLocaleDateString("fa-IR")}
+              </small>
+              <b style={{ marginInlineStart: "auto" }}>
+                {F(dbHit.total)} <small>تومان</small>
+              </b>
+            </div>
+
+            {dbHit.status === "canceled" ? (
+              <p style={{ color: "#dc2626", marginTop: 12 }}>
+                این سفارش لغو شده است. در صورت پرداخت آنلاین، مبلغ تا ۷۲ ساعت کاری به حساب شما بازمی‌گردد.
+              </p>
+            ) : (
+              <div className="tline">
+                {STEPS.map(([e, t], i) => (
+                  <div key={t} className={"tl" + (i < cur ? " done" : i === cur ? " cur" : "")}>
+                    <i>{i < cur ? "✓" : e}</i>
+                    <div>
+                      <b>{t}</b>
+                      <small>
+                        {i < cur
+                          ? "انجام شد"
+                          : i === cur
+                            ? dbHit.status === "processing" && i === 1
+                              ? "در جریان است — پردازش انبار"
+                              : "در جریان است"
+                            : "در انتظار"}
+                      </small>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div style={{ borderTop: "1px solid var(--line)", paddingTop: 8, marginTop: 6 }}>
+              {dbHit.items.map((it) => (
+                <div className="ci" key={it.product_id}>
+                  <span>
+                    {it.emoji} <a href={`#p-${it.product_id}`}>{it.name}</a>
+                    <br />
+                    <small>
+                      {F(it.qty)} × {F(it.price_at_order)}
+                    </small>
+                  </span>
+                  <span>{F(it.price_at_order * it.qty)}</span>
+                </div>
+              ))}
+              {dbHit.discount > 0 && (
+                <div className="sum" style={{ color: "var(--ok)" }}>
+                  <span>تخفیف</span>
+                  <span>−{F(dbHit.discount)}</span>
+                </div>
+              )}
+              <div className="sum">
+                <span>ارسال</span>
+                <span>{dbHit.shipping ? F(dbHit.shipping) : "رایگان"}</span>
+              </div>
+              <div className="sum">
+                <span>روش ارسال / پرداخت</span>
+                <span>
+                  {dbHit.ship === "peyk" ? "پیک همان‌روز" : "پست پیشتاز"} · {dbHit.pay === "cod" ? "پرداخت در محل" : "درگاه آنلاین"}
+                </span>
+              </div>
+              {dbHit.addr && (
+                <div className="sum">
+                  <span>نشانی تحویل</span>
+                  <span style={{ maxWidth: 320, textAlign: "left" }}>{dbHit.addr}</span>
+                </div>
+              )}
+              <div className="sum">
+                <span>موبایل گیرنده</span>
+                <span>{fa(dg(dbHit.phone))}</span>
+              </div>
+            </div>
           </div>
         )}
 
