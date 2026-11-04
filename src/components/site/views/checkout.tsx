@@ -4,7 +4,7 @@ import { useState, type FormEvent } from "react";
 import { STATUS_FA, type OrderLine } from "@/data/store";
 import { F, dg } from "@/lib/format";
 import { cartTotal, findProduct, useAuth, useCart, useData, useRoute, useUI } from "@/lib/shop-state";
-import { dbCreateOrder, dbTrackOrder } from "@/lib/supabase";
+import { dbCheckCoupon, dbCreateOrder, dbReady, dbTrackOrder } from "@/lib/supabase";
 import { Crumb } from "../bits-helper";
 
 export function CheckoutView() {
@@ -42,8 +42,24 @@ export function CheckoutView() {
   const off = applied ? Math.min(Math.round((t * applied.percent) / 100), applied.max) : 0;
   const payable = Math.max(0, t - off) + shipCost;
 
-  const applyCoupon = () => {
-    const c = coupons.find((x) => x.code === coupon.trim().toUpperCase());
+  const applyCoupon = async () => {
+    const code = coupon.trim().toUpperCase();
+    if (!code) return;
+    /* حالت واقعی: اعتبارسنجی سمت سرور (RPC امن check_coupon — مایگریشن ۰۰۰۴).
+       جدول کوپن‌ها برای کلاینت بسته است؛ فقط «نتیجهٔ» اعتبارسنجی برمی‌گردد. */
+    if (dbReady()) {
+      const res = await dbCheckCoupon(code, t);
+      if (res?.valid && res.code) {
+        setApplied({ code: res.code, percent: res.percent ?? 0, max: res.max ?? 0 });
+        useUI.getState().say(`کد ${res.code} اعمال شد — تخفیف ${F(res.discount ?? 0)} تومان ✓`);
+      } else {
+        setApplied(null);
+        useUI.getState().say("کد تخفیف معتبر نیست");
+      }
+      return;
+    }
+    /* حالت نمایشی مصوب (مصوبه ۱۰) — فقط وقتی اتصال دیتابیس تنظیم نیست */
+    const c = coupons.find((x) => x.code === code);
     if (!c || !c.active) {
       useUI.getState().say("کد تخفیف معتبر نیست");
       setApplied(null);

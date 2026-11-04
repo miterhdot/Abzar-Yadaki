@@ -1,11 +1,30 @@
 "use client";
 
+/* ═══════════════════════════════════════════════════════════════════════
+   پنل مدیریت — فاز D3 (دستور ۲۵ — ۱۴۰۵/۰۸/۱۴)
+   • وقتی متغیرهای دیتابیس تنظیم باشند (dbReady) → همهٔ داده‌ها واقعی و زنده
+     از Supabase (RLS ادمین) + ورود واقعی ایمیل/رمز + اعلان زندهٔ سفارش و پیام.
+   • وقتی اتصال دیتابیس تنظیم نباشد → همان رفتار نمایشی مصوب قبلی (مصوبه ۱۰)
+     با دادهٔ محلی و ورود نمایشی — بدون هیچ تغییر گرافیکی.
+   طراحی عین مرجع گرافیکی مدیر — فقط سیم‌کشی داده تغییر کرده است.
+   ═══════════════════════════════════════════════════════════════════════ */
+
 import { Fragment, useEffect, useState, type FormEvent } from "react";
+import { create } from "zustand";
 import {
   C, CUSTOMERS, MONTH_SALES, OrderStatus, Product, STATUS_FA, WEEK_SALES,
+  type Banner, type Coupon, type Msg, type Order, type Review, type Settings,
 } from "@/data/store";
 import { F, dg } from "@/lib/format";
-import { useAdmin, useData, useRoute, useUI } from "@/lib/shop-state";
+import { useAdmin, useData, useUI } from "@/lib/shop-state";
+import {
+  AdmCoupon, AdmOrderRow, dbAddBanner, dbAddCoupon, dbAdminBanners, dbAdminCoupons,
+  dbAdminCategories, dbAdminLive, dbAdminLogin, dbAdminMessages, dbAdminOrders, dbAdminProfiles,
+  dbAdminProducts, dbAdminReviews, dbAdminRestore, dbAdminSignOut, dbReady,
+  dbDeleteBanner, dbDeleteCoupon, dbDeleteMessage, dbDeleteProduct, dbDeleteReview,
+  dbGetSettings, dbReadMessage, dbSaveProduct, dbSaveSettings, dbSetOrderStatus, dbSetReview,
+  dbToggleBanner, dbToggleCoupon,
+} from "@/lib/supabase";
 import { LogoMark } from "../bits";
 
 type Tab =
@@ -27,26 +46,129 @@ const TABS: [Tab, string, string][] = [
 
 const dayFa = (d: number) => (d === 0 ? "امروز" : d === 1 ? "دیروز" : `${F(d)} روز پیش`);
 
+/* مرز «امروز» به ساعت تهران (UTC+۳:۳۰) */
+const TEHRAN = 3.5 * 3600_000;
+const startOfDay = (daysAgo: number): number =>
+  (Math.floor((Date.now() + TEHRAN) / 86_400_000) - daysAgo) * 86_400_000 - TEHRAN;
+
+const FA_MONTHS = ["فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور", "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"];
+const WEEK_LABELS = ["۶ روز پیش", "۵ روز پیش", "۴ روز پیش", "۳ روز پیش", "۲ روز پیش", "دیروز", "امروز"];
+
+/** فروش روزهای اخیر (میلیون تومان) از سفارش‌های واقعی */
+const weekSalesOf = (orders: AdmOrderRow[]): [string, number][] => {
+  const sums = new Array(7).fill(0);
+  for (const o of orders) {
+    const d = Math.floor((startOfDay(0) - new Date(o.created).getTime()) / 86_400_000);
+    if (d >= 0 && d <= 6) sums[6 - d] += o.total;
+  }
+  return WEEK_LABELS.map((l, i) => [l, sums[i] / 1_000_000] as [string, number]);
+};
+
+/** فروش ۶ ماه اخیر (میلیون تومان) — مرز ماه‌ها به ساعت تهران */
+const monthSalesOf = (orders: AdmOrderRow[]): [string, number][] => {
+  const out: [string, number][] = [];
+  const now = new Date(Date.now() + TEHRAN);
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getTime());
+    d.setUTCMonth(d.getUTCMonth() - i);
+    const start = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1) - TEHRAN;
+    const end = Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1) - TEHRAN;
+    let sum = 0;
+    for (const o of orders) {
+      const t = new Date(o.created).getTime();
+      if (t >= start && t < end) sum += o.total;
+    }
+    out.push([FA_MONTHS[d.getUTCMonth()], sum / 1_000_000]);
+  }
+  return out;
+};
+
+/** پیام فارسی برای خطاهای رایج دیتابیس */
+const faDbErr = (e: string): string =>
+  /foreign key/i.test(e) ? "این مورد در سفارش‌ها استفاده شده و حذف آن ممکن نیست"
+  : /duplicate key/i.test(e) ? "این مقدار قبلاً ثبت شده است"
+  : /row-level security|JWT/i.test(e) ? "دسترسی مجاز نیست — دوباره وارد شوید"
+  : e || "خطای نامشخص";
+
 function StatusBadge({ s }: { s: OrderStatus }) {
   const cls = s === "done" ? "b-ok" : s === "sent" ? "b-warn" : s === "processing" ? "b-off" : "b-err";
   return <span className={"badge " + cls}>{STATUS_FA[s]}</span>;
 }
 
+/* ═══════════ دادهٔ واقعی پنل (فقط در حافظهٔ همین نشست — ذخیرهٔ محلی نمی‌شود) ═══════════ */
+
+type AdmData = {
+  loaded: boolean;
+  err: string;
+  orders: AdmOrderRow[];
+  prods: Product[];
+  reviews: Review[];
+  coupons: AdmCoupon[];
+  banners: Banner[];
+  msgs: Msg[];
+  profiles: { name: string; phone: string }[];
+  settings: Settings | null;
+  cats: [string, string][];
+};
+
+const admEmpty: AdmData = {
+  loaded: false, err: "", orders: [], prods: [], reviews: [],
+  coupons: [], banners: [], msgs: [], profiles: [], settings: null, cats: [],
+};
+
+const useAdm = create<AdmData>(() => ({ ...admEmpty }));
+
+const loadAdm = async (): Promise<void> => {
+  const [o, p, r, c, b, m, pr, st, ct] = await Promise.all([
+    dbAdminOrders(), dbAdminProducts(), dbAdminReviews(), dbAdminCoupons(),
+    dbAdminBanners(), dbAdminMessages(), dbAdminProfiles(), dbGetSettings(), dbAdminCategories(),
+  ]);
+  const err = [o, p, r, c, b, m].some((x) => !x.ok) ? "خطا در بارگذاری بخشی از داده‌ها" : "";
+  useAdm.setState({
+    loaded: true, err,
+    orders: o.ok ? o.rows : [],
+    prods: p.ok ? p.rows : [],
+    reviews: r.ok ? r.rows : [],
+    coupons: c.ok ? c.rows : [],
+    banners: b.ok ? b.rows : [],
+    msgs: m.ok ? m.rows : [],
+    profiles: pr.ok ? pr.rows : [],
+    settings: st,
+    cats: ct.ok ? ct.rows : [],
+  });
+};
+
 /* ═══════════ ورود ادمین ═══════════ */
 
-function AdminLogin() {
+function AdminLogin({ real }: { real: boolean }) {
   const [u, setU] = useState("");
   const [p, setP] = useState("");
   const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
 
-  const submit = (e: FormEvent<HTMLFormElement>) => {
+  const submit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setBusy(true);
+    setErr("");
+    if (real) {
+      const r = await dbAdminLogin(u.trim(), p);
+      if (r.ok) {
+        useAdmin.getState().login();
+        useUI.getState().say("خوش آمدید مدیر ✓");
+        return; // بارگذاری داده‌ها در useEffect پنل انجام می‌شود
+      }
+      setErr(r.error === "db-off" ? "اتصال دیتابیس برقرار نیست" : r.error);
+      setBusy(false);
+      return;
+    }
+    /* حالت نمایشی مصوب (مصوبه ۱۰) — فقط وقتی دیتابیس تنظیم نیست */
     if (u.trim() === "admin" && p === "admin123") {
       useAdmin.getState().login();
       useUI.getState().say("خوش آمدید مدیر ✓");
-    } else {
-      setErr("نام کاربری یا رمز عبور اشتباه است.");
+      return;
     }
+    setErr("نام کاربری یا رمز عبور اشتباه است.");
+    setBusy(false);
   };
 
   return (
@@ -58,20 +180,33 @@ function AdminLogin() {
           <small style={{ color: "var(--mute)" }}>برای ورود، اطلاعات مدیر را وارد کنید</small>
         </div>
         <label>
-          نام کاربری
-          <input value={u} onChange={(e) => setU(e.target.value)} autoFocus required />
+          {real ? "ایمیل مدیر" : "نام کاربری"}
+          <input
+            value={u}
+            onChange={(e) => setU(e.target.value)}
+            autoFocus
+            required
+            type={real ? "email" : "text"}
+            dir={real ? "ltr" : undefined}
+          />
         </label>
         <label>
           رمز عبور
           <input type="password" value={p} onChange={(e) => setP(e.target.value)} required />
         </label>
         {err && <small style={{ color: "#dc2626" }}>{err}</small>}
-        <button className="btn" style={{ padding: 12 }} type="submit">
-          ورود به پنل
+        <button className="btn" style={{ padding: 12 }} type="submit" disabled={busy}>
+          {busy ? "در حال بررسی…" : "ورود به پنل"}
         </button>
         <small style={{ color: "var(--mute)" }}>
-          نسخه نمایشی — نام کاربری: <b style={{ direction: "ltr", display: "inline-block" }}>admin</b> و رمز:{" "}
-          <b style={{ direction: "ltr", display: "inline-block" }}>admin123</b>
+          {real ? (
+            <>ورود امن با حساب مدیر (دیتابیس فروشگاه) — حساب مدیر توسط پشتیبانی فنی ساخته می‌شود</>
+          ) : (
+            <>
+              نسخه نمایشی — نام کاربری: <b style={{ direction: "ltr", display: "inline-block" }}>admin</b> و رمز:{" "}
+              <b style={{ direction: "ltr", display: "inline-block" }}>admin123</b>
+            </>
+          )}
         </small>
         <a href="#home" className="btn ghost">
           ↩ بازگشت به سایت
@@ -83,10 +218,17 @@ function AdminLogin() {
 
 /* ═══════════ فرم محصول (افزودن / ویرایش) ═══════════ */
 
-function ProductForm({ init, onClose }: { init?: Product; onClose: () => void }) {
+function ProductForm({
+  init, cats, onClose, onSave,
+}: {
+  init?: Product;
+  cats: [string, string][];
+  onClose: () => void;
+  onSave: (p: Product, isNew: boolean) => Promise<boolean>;
+}) {
   const [f, setF] = useState({
     n: init?.n ?? "",
-    c: init?.c ?? C[0][1],
+    c: init?.c ?? cats[0]?.[1] ?? C[0][1],
     b: init?.b ?? "",
     e: init?.e ?? "🔧",
     p: init?.p ? String(init.p) : "",
@@ -95,7 +237,7 @@ function ProductForm({ init, onClose }: { init?: Product; onClose: () => void })
     r: init?.r ?? "۴٫۵",
   });
 
-  const save = () => {
+  const save = async () => {
     const price = Number(dg(f.p));
     if (!f.n.trim() || !f.b.trim() || !price) {
       useUI.getState().say("نام، برند و قیمت را درست وارد کنید");
@@ -112,13 +254,9 @@ function ProductForm({ init, onClose }: { init?: Product; onClose: () => void })
       s: f.s,
       r: f.r,
     };
-    if (init) {
-      useData.getState().updProd(data);
-      useUI.getState().say("محصول ویرایش شد ✓");
-    } else {
-      useData.getState().addProd(data);
-      useUI.getState().say("محصول جدید اضافه شد ✓");
-    }
+    const ok = await onSave(data, !init);
+    if (!ok) return;
+    useUI.getState().say(init ? "محصول ویرایش شد ✓" : "محصول جدید اضافه شد ✓");
     onClose();
   };
 
@@ -143,7 +281,7 @@ function ProductForm({ init, onClose }: { init?: Product; onClose: () => void })
           <label>
             دسته
             <select value={f.c} onChange={(e) => setF({ ...f, c: e.target.value })}>
-              {C.map(([, n]) => (
+              {(cats.length ? cats : C).map(([, n]) => (
                 <option key={n}>{n}</option>
               ))}
             </select>
@@ -199,33 +337,311 @@ function ProductForm({ init, onClose }: { init?: Product; onClose: () => void })
 
 export function AdminApp() {
   const logged = useAdmin((s) => s.logged);
+  const real = dbReady();
+  const adm = useAdm();
   const [tab, setTab] = useState<Tab>("dash");
   const [filter, setFilter] = useState<OrderStatus | "">("");
   const [openOrder, setOpenOrder] = useState("");
   const [prodModal, setProdModal] = useState<Product | "new" | null>(null);
   const [qProd, setQProd] = useState("");
+  const [booting, setBooting] = useState(real);
   const say = useUI((s) => s.say);
+  const dProds = useData((s) => s.prods);
+  const dOrders = useData((s) => s.orders);
+  const dReviews = useData((s) => s.reviews);
+  const dCoupons = useData((s) => s.coupons);
+  const dBanners = useData((s) => s.banners);
+  const dMsgs = useData((s) => s.msgs);
+  const dSettings = useData((s) => s.settings);
 
-  const prods = useData((s) => s.prods);
-  const orders = useData((s) => s.orders);
-  const reviews = useData((s) => s.reviews);
-  const coupons = useData((s) => s.coupons);
-  const banners = useData((s) => s.banners);
-  const msgs = useData((s) => s.msgs);
-  const settings = useData((s) => s.settings);
+  /* بازیابی نشست واقعی ادمین پس از رفرش (فقط حالت واقعی) —
+     در حالت نمایشی booting از ابتدا false است و هیچ اثری اجرا نمی‌شود */
+  useEffect(() => {
+    if (!real) return;
+    (async () => {
+      const ok = await dbAdminRestore();
+      if (ok) useAdmin.getState().login();
+      else useAdmin.getState().logout();
+      setBooting(false); /* پس از پایان بررسی — درون callback ناهمگام */
+    })();
+  }, [real]);
 
-  if (!logged) return <AdminLogin />;
+  /* بارگذاری داده‌ها + اعلان زنده — هر بار که ادمین وارد می‌شود */
+  useEffect(() => {
+    if (!real || !logged) return;
+    let cancelled = false;
+    let off: (() => void) | undefined;
+    (async () => {
+      await loadAdm();
+      if (cancelled) return;
+      off = dbAdminLive(
+        () => {
+          loadAdm();
+          useUI.getState().say("🧾 سفارش جدید ثبت شد");
+        },
+        () => {
+          loadAdm();
+          useUI.getState().say("✉️ پیام جدید دریافت شد");
+        }
+      );
+    })();
+    return () => {
+      cancelled = true;
+      off?.();
+    };
+  }, [real, logged]);
+
+  /* ── اقدامات — واقعی یا نمایشی ── */
+
+  const actSaveProduct = async (data: Product, isNew: boolean): Promise<boolean> => {
+    if (!real) {
+      if (isNew) useData.getState().addProd(data);
+      else useData.getState().updProd(data);
+      return true;
+    }
+    const r = await dbSaveProduct(isNew ? { ...data, id: undefined } : data);
+    if (!r.ok) {
+      useUI.getState().say("ذخیره ناموفق: " + faDbErr(r.error));
+      return false;
+    }
+    await loadAdm();
+    return true;
+  };
+
+  const actDelProduct = async (p: Product) => {
+    if (!real) {
+      useData.getState().delProd(p.id);
+      useUI.getState().say("محصول حذف شد");
+      return;
+    }
+    const r = await dbDeleteProduct(p.id);
+    if (!r.ok) {
+      useUI.getState().say("حذف ناموفق: " + faDbErr(r.error));
+      return;
+    }
+    useUI.getState().say("محصول حذف شد");
+    loadAdm();
+  };
+
+  const actSetOrderStatus = async (code: string, s: OrderStatus) => {
+    if (!real) {
+      useData.getState().setOrderStatus(code, s);
+      useUI.getState().say(`وضعیت ${code} → ${STATUS_FA[s]}`);
+      return;
+    }
+    const prev = useAdm.getState().orders;
+    useAdm.setState({ orders: prev.map((o) => (o.code === code ? { ...o, status: s } : o)) }); // خوش‌بینانه
+    const r = await dbSetOrderStatus(code, s);
+    if (!r.ok) {
+      useAdm.setState({ orders: prev });
+      useUI.getState().say("ثبت وضعیت ناموفق: " + faDbErr(r.error));
+      return;
+    }
+    useUI.getState().say(`وضعیت ${code} → ${STATUS_FA[s]} ✓`);
+  };
+
+  const actSetReview = async (id: number, s: Review["status"], msg: string) => {
+    if (!real) {
+      useData.getState().setReviewStatus(id, s);
+      useUI.getState().say(msg);
+      return;
+    }
+    const r = await dbSetReview(id, s);
+    if (!r.ok) {
+      useUI.getState().say("ثبت ناموفق: " + faDbErr(r.error));
+      return;
+    }
+    useUI.getState().say(msg);
+    loadAdm();
+  };
+
+  const actDelReview = async (id: number) => {
+    if (!real) {
+      useData.getState().delReview(id);
+      useUI.getState().say("نظر حذف شد");
+      return;
+    }
+    const r = await dbDeleteReview(id);
+    if (!r.ok) {
+      useUI.getState().say("حذف ناموفق: " + faDbErr(r.error));
+      return;
+    }
+    useUI.getState().say("نظر حذف شد");
+    loadAdm();
+  };
+
+  const actAddCoupon = async (code: string, percent: number, max: number): Promise<boolean> => {
+    if (!real) {
+      if (useData.getState().coupons.some((x) => x.code === code)) {
+        useUI.getState().say("این کد قبلاً ثبت شده");
+        return false;
+      }
+      useData.getState().addCoupon({ code, percent, max, active: true });
+      return true;
+    }
+    if (useAdm.getState().coupons.some((x) => x.code === code)) {
+      useUI.getState().say("این کد قبلاً ثبت شده");
+      return false;
+    }
+    const r = await dbAddCoupon(code, percent, max);
+    if (!r.ok) {
+      useUI.getState().say("ساخت کد ناموفق: " + faDbErr(r.error));
+      return false;
+    }
+    loadAdm();
+    return true;
+  };
+
+  const actToggleCoupon = async (c: Coupon | AdmCoupon) => {
+    if (!real) {
+      useData.getState().toggleCoupon(c.code);
+      return;
+    }
+    const r = await dbToggleCoupon(c.code, !c.active);
+    if (!r.ok) {
+      useUI.getState().say("ثبت ناموفق: " + faDbErr(r.error));
+      return;
+    }
+    loadAdm();
+  };
+
+  const actDelCoupon = async (code: string) => {
+    if (!real) {
+      useData.getState().delCoupon(code);
+      useUI.getState().say("کد حذف شد");
+      return;
+    }
+    const r = await dbDeleteCoupon(code);
+    if (!r.ok) {
+      useUI.getState().say("حذف ناموفق: " + faDbErr(r.error));
+      return;
+    }
+    useUI.getState().say("کد حذف شد");
+    loadAdm();
+  };
+
+  const actAddBanner = async (t: string, d: string, href: string, bg: string): Promise<boolean> => {
+    if (!real) {
+      useData.getState().addBanner({ id: Date.now(), t, d, href, bg, active: true });
+      return true;
+    }
+    const r = await dbAddBanner(t, d, href, bg);
+    if (!r.ok) {
+      useUI.getState().say("افزودن ناموفق: " + faDbErr(r.error));
+      return false;
+    }
+    loadAdm();
+    return true;
+  };
+
+  const actToggleBanner = async (b: Banner) => {
+    if (!real) {
+      useData.getState().toggleBanner(b.id);
+      return;
+    }
+    const r = await dbToggleBanner(b.id, !b.active);
+    if (!r.ok) {
+      useUI.getState().say("ثبت ناموفق: " + faDbErr(r.error));
+      return;
+    }
+    loadAdm();
+  };
+
+  const actDelBanner = async (b: Banner) => {
+    if (!real) {
+      useData.getState().delBanner(b.id);
+      useUI.getState().say("بنر حذف شد");
+      return;
+    }
+    const r = await dbDeleteBanner(b.id);
+    if (!r.ok) {
+      useUI.getState().say("حذف ناموفق: " + faDbErr(r.error));
+      return;
+    }
+    useUI.getState().say("بنر حذف شد");
+    loadAdm();
+  };
+
+  const actReadMsg = async (id: number) => {
+    if (!real) {
+      useData.getState().readMsg(id);
+      return;
+    }
+    const r = await dbReadMessage(id);
+    if (!r.ok) {
+      useUI.getState().say("ثبت ناموفق: " + faDbErr(r.error));
+      return;
+    }
+    loadAdm();
+  };
+
+  const actDelMsg = async (id: number) => {
+    if (!real) {
+      useData.getState().delMsg(id);
+      useUI.getState().say("پیام حذف شد");
+      return;
+    }
+    const r = await dbDeleteMessage(id);
+    if (!r.ok) {
+      useUI.getState().say("حذف ناموفق: " + faDbErr(r.error));
+      return;
+    }
+    useUI.getState().say("پیام حذف شد");
+    loadAdm();
+  };
+
+  const actSaveSettings = async (s: Settings): Promise<boolean> => {
+    if (!real) {
+      useData.getState().saveSettings(s);
+      return true;
+    }
+    const r = await dbSaveSettings(s);
+    if (!r.ok) {
+      useUI.getState().say("ذخیره ناموفق: " + faDbErr(r.error));
+      return false;
+    }
+    useData.getState().saveSettings(s); // اعمال فوری در همین مرورگر
+    useAdm.setState({ settings: s });
+    return true;
+  };
+
+  const doLogout = () => {
+    if (real) dbAdminSignOut();
+    useAdm.setState({ ...admEmpty });
+    useAdmin.getState().logout();
+    useUI.getState().say("از پنل خارج شدید");
+  };
+
+  /* ── حالت‌های ورود/بارگذاری ── */
+
+  if (booting && real && !logged)
+    return (
+      <div className="adm-login">
+        <div className="panel fm" style={{ textAlign: "center", gap: 8 }}>
+          <LogoMark size={44} />
+          <b>در حال بررسی نشست مدیریت…</b>
+        </div>
+      </div>
+    );
+
+  if (!logged) return <AdminLogin real={real} />;
+
+  /* ── دادهٔ یکسان‌شده (واقعی یا نمایشی) ── */
+  const orders: (Order | AdmOrderRow)[] = real ? adm.orders : dOrders;
+  const prods = real ? adm.prods : dProds;
+  const reviews = real ? adm.reviews : dReviews;
+  const coupons = real ? adm.coupons : dCoupons;
+  const banners = real ? adm.banners : dBanners;
+  const msgs = real ? adm.msgs : dMsgs;
+  const settings = real ? adm.settings ?? dSettings : dSettings;
 
   const filteredOrders = filter ? orders.filter((o) => o.status === filter) : orders;
   const unread = msgs.filter((m) => m.unread).length;
   const pendingReviews = reviews.filter((r) => r.status === "pending").length;
-  const todaySale = 12450000;
-  const maxSale = Math.max(...WEEK_SALES.map(([, v]) => v));
-  const maxMonth = Math.max(...MONTH_SALES.map(([, v]) => v));
   const outOfStock = prods.filter((p) => !p.s);
   const prodsList = prods.filter((p) => !qProd || p.n.includes(qProd) || p.b.includes(qProd));
 
-  /* گزارش‌ها */
+  /* گزارش‌ها (هر دو حالت) */
   const doneTotal = orders.filter((o) => o.status === "done").reduce((a, o) => a + o.total, 0);
   const statusCount = (s: OrderStatus) => orders.filter((o) => o.status === s).length;
   const topMap = new Map<number, number>();
@@ -233,6 +649,46 @@ export function AdminApp() {
   const topItems = [...topMap.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
   const catCount = C.map(([e, n]) => [n, prods.filter((p) => p.c === n).length] as const);
   const maxCat = Math.max(1, ...catCount.map(([, v]) => v));
+
+  /* آمار واقعی داشبورد (فقط حالت واقعی) */
+  const admOrders = real ? adm.orders : [];
+  const todaySale = admOrders.filter((o) => new Date(o.created).getTime() >= startOfDay(0)).reduce((a, o) => a + o.total, 0);
+  const ydaySale = admOrders
+    .filter((o) => {
+      const t = new Date(o.created).getTime();
+      return t >= startOfDay(1) && t < startOfDay(0);
+    })
+    .reduce((a, o) => a + o.total, 0);
+  const todayCount = admOrders.filter((o) => new Date(o.created).getTime() >= startOfDay(0)).length;
+  const custCount = new Set(admOrders.map((o) => dg(o.phone))).size;
+  const newOrdersCount = admOrders.filter((o) => o.status === "processing").length;
+  const weekData = real ? weekSalesOf(admOrders) : WEEK_SALES;
+  const monthData = real ? monthSalesOf(admOrders) : MONTH_SALES;
+  const maxSale = Math.max(...weekData.map(([, v]) => v));
+  const maxMonth = Math.max(...monthData.map(([, v]) => v));
+
+  /* مشتریان واقعی = تجمیع سفارش‌ها + ثبت‌نام‌شده‌ها */
+  const customersReal: { name: string; phone: string; city: string; orders: number; spent: number; last: string }[] = (() => {
+    const map = new Map<string, { name: string; phone: string; city: string; orders: number; spent: number; last: string }>();
+    for (const pr of adm.profiles)
+      map.set(dg(pr.phone), { name: pr.name, phone: pr.phone, city: "—", orders: 0, spent: 0, last: "—" });
+    for (const o of admOrders) {
+      const k = dg(o.phone);
+      const cur = map.get(k) ?? { name: o.name, phone: o.phone, city: "—", orders: 0, spent: 0, last: "—" };
+      if (cur.name === "—") cur.name = o.name;
+      cur.orders += 1;
+      cur.spent += o.total;
+      cur.last = dayFa(o.day);
+      map.set(k, cur);
+    }
+    return [...map.values()].sort((a, b) => b.spent - a.spent);
+  })();
+
+  /* اعداد داشبورد (واقعی یا نمایشی) */
+  const dashSale = real ? todaySale : 12450000;
+  const dashNew = real ? newOrdersCount : orders.filter((o) => o.day === 0).length;
+  const dashCust = real ? custCount : 1248;
+  const dashFourth = real ? todayCount : 3940;
 
   return (
     <div className="adm">
@@ -249,7 +705,7 @@ export function AdminApp() {
           </button>
         ))}
         <div className="sep" />
-        <button type="button" onClick={() => { useAdmin.getState().logout(); say("از پنل خارج شدید"); }}>
+        <button type="button" onClick={doLogout}>
           🚪 خروج از پنل
         </button>
         <a href="#home">↩️ بازگشت به سایت</a>
@@ -261,37 +717,48 @@ export function AdminApp() {
           <>
             <div className="adm-top">
               <h1>داشبورد</h1>
-              <small style={{ color: "var(--mute)" }}>داده‌های نمایشی — متصل به نسخه نهایی</small>
+              <small style={{ color: "var(--mute)" }}>
+                {real
+                  ? adm.err
+                    ? `${adm.err} — `
+                    : "متصل به دیتابیس فروشگاه — داده‌های زنده"
+                  : "داده‌های نمایشی — متصل به نسخه نهایی"}
+                {real && adm.err && (
+                  <button type="button" className="btn ghost" style={{ padding: "2px 10px", fontSize: 11, marginInlineStart: 6 }} onClick={() => loadAdm()}>
+                    تلاش مجدد
+                  </button>
+                )}
+              </small>
             </div>
             <div className="adm-stats">
               <div className="panel">
                 <small style={{ color: "var(--mute)" }}>فروش امروز</small>
-                <b>{F(todaySale)}</b>
+                <b>{F(dashSale)}</b>
                 <small>تومان · </small>
-                <small className="up">↑ ۱۲٪ نسبت به دیروز</small>
+                <small className={real ? "" : "up"}>{real ? `دیروز: ${F(ydaySale)}` : "↑ ۱۲٪ نسبت به دیروز"}</small>
               </div>
               <div className="panel">
-                <small style={{ color: "var(--mute)" }}>سفارش‌های جدید</small>
-                <b>{F(orders.filter((o) => o.day === 0).length)}</b>
-                <small className="up">↑ ۳ مورد</small>
+                <small style={{ color: "var(--mute)" }}>{real ? "سفارش‌های در انتظار" : "سفارش‌های جدید"}</small>
+                <b>{F(dashNew)}</b>
+                <small className={real ? "" : "up"}>{real ? `امروز: ${F(todayCount)} سفارش` : "↑ ۳ مورد"}</small>
               </div>
               <div className="panel">
                 <small style={{ color: "var(--mute)" }}>مشتریان</small>
-                <b>{F(1248)}</b>
-                <small className="up">↑ ۱۸ امروز</small>
+                <b>{F(dashCust)}</b>
+                <small className={real ? "" : "up"}>{real ? `ثبت‌نام‌شده: ${F(adm.profiles.length)}` : "↑ ۱۸ امروز"}</small>
               </div>
               <div className="panel">
-                <small style={{ color: "var(--mute)" }}>بازدید امروز</small>
-                <b>{F(3940)}</b>
-                <small className="down">↓ ۴٪</small>
+                <small style={{ color: "var(--mute)" }}>{real ? "سفارش‌های امروز" : "بازدید امروز"}</small>
+                <b>{F(dashFourth)}</b>
+                <small className={real ? "" : "down"}>{real ? `مجموع کل: ${F(orders.length)} سفارش` : "↓ ۴٪"}</small>
               </div>
             </div>
             <div className="adm-cols">
               <div className="panel">
                 <b>فروش ۷ روز اخیر (میلیون تومان)</b>
                 <div className="adm-chart" style={{ marginTop: 14 }}>
-                  {WEEK_SALES.map(([d, v], i) => (
-                    <div key={d} className={i === WEEK_SALES.length - 1 ? "hot" : ""}>
+                  {weekData.map(([d, v], i) => (
+                    <div key={d} className={i === weekData.length - 1 ? "hot" : ""}>
                       <i style={{ height: `${(v / maxSale) * 100}%` }} />
                       <small>{F(Math.round(v))}</small>
                       <small>{d}</small>
@@ -321,7 +788,9 @@ export function AdminApp() {
                               className="btn"
                               style={{ padding: "4px 10px", fontSize: 12 }}
                               type="button"
-                              onClick={() => { useData.getState().updProd({ ...p, s: 1 }); say(`«${p.n}» موجود شد ✓`); }}
+                              onClick={async () => {
+                                if (await actSaveProduct({ ...p, s: 1 }, false)) say(`«${p.n}» موجود شد ✓`);
+                              }}
                             >
                               افزودن موجودی
                             </button>
@@ -411,10 +880,7 @@ export function AdminApp() {
                           style={{ padding: "3px 10px", fontSize: 12, color: "#dc2626", borderColor: "#dc262655" }}
                           type="button"
                           onClick={() => {
-                            if (confirm(`حذف «${p.n}»؟`)) {
-                              useData.getState().delProd(p.id);
-                              say("محصول حذف شد");
-                            }
+                            if (confirm(`حذف «${p.n}»؟`)) actDelProduct(p);
                           }}
                         >
                           حذف
@@ -458,62 +924,95 @@ export function AdminApp() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredOrders.map((o) => (
-                    <FragmentRow
-                      key={o.code}
-                      code={o.code}
-                      open={openOrder === o.code}
-                      onToggle={() => setOpenOrder(openOrder === o.code ? "" : o.code)}
-                      cells={[
-                        <b key="c">{o.code}</b>,
-                        o.name,
-                        o.phone,
-                        F(o.items),
-                        F(o.total),
-                        dayFa(o.day),
-                        <StatusBadge key="s" s={o.status} />,
-                      ]}
-                      detail={
-                        <>
-                          {o.lines?.map(([pid, n]) => {
-                            const p = useData.getState().prods.find((x) => x.id === pid);
-                            return (
-                              <div className="sum" key={pid}>
-                                <span>
-                                  {p ? `${p.e} ${p.n}` : `کالا #${pid}`} × {F(n)}
-                                </span>
-                                <span>{p ? F(p.p * n) : "—"}</span>
-                              </div>
-                            );
-                          })}
-                          <div className="sum">
-                            <span>نشانی</span>
-                            <span style={{ maxWidth: 340, textAlign: "left" }}>{o.addr ?? "—"}</span>
-                          </div>
-                          <div className="sum">
-                            <span>روش ارسال / پرداخت</span>
-                            <span>
-                              {o.ship === "peyk" ? "پیک" : "پست"} · {o.pay === "cod" ? "در محل" : "آنلاین"}
-                            </span>
-                          </div>
-                          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 10 }}>
-                            <small style={{ width: "100%", color: "var(--mute)" }}>تغییر وضعیت سفارش:</small>
-                            {(["processing", "sent", "done", "canceled"] as OrderStatus[]).map((s) => (
-                              <button
-                                key={s}
-                                type="button"
-                                className={o.status === s ? "btn" : "btn ghost"}
-                                style={{ padding: "5px 12px", fontSize: 12 }}
-                                onClick={() => { useData.getState().setOrderStatus(o.code, s); say(`وضعیت ${o.code} → ${STATUS_FA[s]}`); }}
-                              >
-                                {STATUS_FA[s]}
-                              </button>
-                            ))}
-                          </div>
-                        </>
-                      }
-                    />
-                  ))}
+                  {filteredOrders.map((o) => {
+                    const ro = o as AdmOrderRow;
+                    return (
+                      <FragmentRow
+                        key={o.code}
+                        code={o.code}
+                        open={openOrder === o.code}
+                        onToggle={() => setOpenOrder(openOrder === o.code ? "" : o.code)}
+                        cells={[
+                          <b key="c">{o.code}</b>,
+                          o.name,
+                          o.phone,
+                          F(o.items),
+                          F(o.total),
+                          dayFa(o.day),
+                          <StatusBadge key="s" s={o.status} />,
+                        ]}
+                        detail={
+                          <>
+                            {real
+                              ? ro.itemsDetail.map((it) => {
+                                  const p = prods.find((x) => x.id === it.pid);
+                                  return (
+                                    <div className="sum" key={it.pid}>
+                                      <span>
+                                        {p ? `${p.e} ${p.n}` : `کالا #${it.pid}`} × {F(it.qty)}
+                                      </span>
+                                      <span>{F(it.price * it.qty)}</span>
+                                    </div>
+                                  );
+                                })
+                              : o.lines?.map(([pid, n]) => {
+                                  const p = prods.find((x) => x.id === pid);
+                                  return (
+                                    <div className="sum" key={pid}>
+                                      <span>
+                                        {p ? `${p.e} ${p.n}` : `کالا #${pid}`} × {F(n)}
+                                      </span>
+                                      <span>{p ? F(p.p * n) : "—"}</span>
+                                    </div>
+                                  );
+                                })}
+                            {real && (
+                              <>
+                                <div className="sum">
+                                  <span>جمع کالاها</span>
+                                  <span>{F(ro.subtotal)}</span>
+                                </div>
+                                {ro.discount > 0 && (
+                                  <div className="sum" style={{ color: "var(--ok)" }}>
+                                    <span>تخفیف {ro.coupon ? `(${ro.coupon})` : ""}</span>
+                                    <span>−{F(ro.discount)}</span>
+                                  </div>
+                                )}
+                                <div className="sum">
+                                  <span>ارسال</span>
+                                  <span>{ro.shipping ? F(ro.shipping) : "رایگان"}</span>
+                                </div>
+                              </>
+                            )}
+                            <div className="sum">
+                              <span>نشانی</span>
+                              <span style={{ maxWidth: 340, textAlign: "left" }}>{o.addr ?? "—"}</span>
+                            </div>
+                            <div className="sum">
+                              <span>روش ارسال / پرداخت</span>
+                              <span>
+                                {o.ship === "peyk" ? "پیک" : "پست"} · {o.pay === "cod" ? "در محل" : "آنلاین"}
+                              </span>
+                            </div>
+                            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 10 }}>
+                              <small style={{ width: "100%", color: "var(--mute)" }}>تغییر وضعیت سفارش:</small>
+                              {(["processing", "sent", "done", "canceled"] as OrderStatus[]).map((s) => (
+                                <button
+                                  key={s}
+                                  type="button"
+                                  className={o.status === s ? "btn" : "btn ghost"}
+                                  style={{ padding: "5px 12px", fontSize: 12 }}
+                                  onClick={() => actSetOrderStatus(o.code, s)}
+                                >
+                                  {STATUS_FA[s]}
+                                </button>
+                              ))}
+                            </div>
+                          </>
+                        }
+                      />
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -524,7 +1023,8 @@ export function AdminApp() {
         {tab === "customers" && (
           <>
             <div className="adm-top">
-              <h1>مشتریان ({F(CUSTOMERS.length)})</h1>
+              <h1>مشتریان ({F(real ? customersReal.length : CUSTOMERS.length)})</h1>
+              {real && <small style={{ color: "var(--mute)" }}>از سفارش‌های واقعی + کاربران ثبت‌نام‌شده</small>}
             </div>
             <div className="panel" style={{ padding: 8, overflowX: "auto" }}>
               <table className="adm-table">
@@ -539,18 +1039,36 @@ export function AdminApp() {
                   </tr>
                 </thead>
                 <tbody>
-                  {CUSTOMERS.map((c) => (
-                    <tr key={c.phone}>
-                      <td>
-                        <b>{c.name}</b>
-                      </td>
-                      <td>{c.phone}</td>
-                      <td>{c.city}</td>
-                      <td>{F(c.orders)}</td>
-                      <td>{F(c.spent)}</td>
-                      <td>{c.last}</td>
+                  {(real
+                    ? customersReal.map((c) => (
+                        <tr key={c.phone}>
+                          <td>
+                            <b>{c.name}</b>
+                          </td>
+                          <td>{c.phone}</td>
+                          <td>{c.city}</td>
+                          <td>{F(c.orders)}</td>
+                          <td>{F(c.spent)}</td>
+                          <td>{c.last}</td>
+                        </tr>
+                      ))
+                    : CUSTOMERS.map((c) => (
+                        <tr key={c.phone}>
+                          <td>
+                            <b>{c.name}</b>
+                          </td>
+                          <td>{c.phone}</td>
+                          <td>{c.city}</td>
+                          <td>{F(c.orders)}</td>
+                          <td>{F(c.spent)}</td>
+                          <td>{c.last}</td>
+                        </tr>
+                      )))}
+                  {real && customersReal.length === 0 && (
+                    <tr>
+                      <td colSpan={6}>هنوز مشتری‌ای ثبت نشده است.</td>
                     </tr>
-                  ))}
+                  )}
                 </tbody>
               </table>
             </div>
@@ -565,6 +1083,7 @@ export function AdminApp() {
               <small style={{ color: "var(--mute)" }}>نظرات تأییدشده در صفحه محصول نمایش داده می‌شوند</small>
             </div>
             <div style={{ display: "grid", gap: 10 }}>
+              {reviews.length === 0 && <div className="panel">نظری ثبت نشده است.</div>}
               {reviews.map((r) => {
                 const p = prods.find((x) => x.id === r.pid);
                 return (
@@ -584,7 +1103,7 @@ export function AdminApp() {
                           className="btn"
                           style={{ padding: "5px 14px", fontSize: 12 }}
                           type="button"
-                          onClick={() => { useData.getState().setReviewStatus(r.id, "ok"); say("نظر تأیید شد ✓"); }}
+                          onClick={() => actSetReview(r.id, "ok", "نظر تأیید شد ✓")}
                         >
                           ✔ تأیید
                         </button>
@@ -594,7 +1113,7 @@ export function AdminApp() {
                           className="btn ghost"
                           style={{ padding: "5px 14px", fontSize: 12 }}
                           type="button"
-                          onClick={() => { useData.getState().setReviewStatus(r.id, "no"); say("نظر رد شد"); }}
+                          onClick={() => actSetReview(r.id, "no", "نظر رد شد")}
                         >
                           ✖ رد
                         </button>
@@ -603,7 +1122,7 @@ export function AdminApp() {
                         className="btn ghost"
                         style={{ padding: "5px 14px", fontSize: 12, color: "#dc2626", borderColor: "#dc262655" }}
                         type="button"
-                        onClick={() => { useData.getState().delReview(r.id); say("نظر حذف شد"); }}
+                        onClick={() => actDelReview(r.id)}
                       >
                         حذف
                       </button>
@@ -621,7 +1140,7 @@ export function AdminApp() {
             <div className="adm-top">
               <h1>کدهای تخفیف ({F(coupons.length)})</h1>
             </div>
-            <CouponAdd />
+            <CouponAdd onAdd={actAddCoupon} />
             <div className="panel" style={{ padding: 8, marginTop: 12, overflowX: "auto" }}>
               <table className="adm-table">
                 <thead>
@@ -629,6 +1148,7 @@ export function AdminApp() {
                     <th>کد</th>
                     <th>درصد</th>
                     <th>سقف تخفیف (تومان)</th>
+                    <th>استفاده</th>
                     <th>وضعیت</th>
                     <th></th>
                   </tr>
@@ -641,16 +1161,17 @@ export function AdminApp() {
                       </td>
                       <td>٪{F(c.percent)}</td>
                       <td>{F(c.max)}</td>
+                      <td>{real ? F((c as AdmCoupon).used) : "—"}</td>
                       <td>{c.active ? <span className="badge b-ok">فعال</span> : <span className="badge b-off">غیرفعال</span>}</td>
                       <td style={{ whiteSpace: "nowrap" }}>
-                        <button className="btn ghost" style={{ padding: "3px 10px", fontSize: 12 }} type="button" onClick={() => useData.getState().toggleCoupon(c.code)}>
+                        <button className="btn ghost" style={{ padding: "3px 10px", fontSize: 12 }} type="button" onClick={() => actToggleCoupon(c)}>
                           {c.active ? "غیرفعال کن" : "فعال کن"}
                         </button>{" "}
                         <button
                           className="btn ghost"
                           style={{ padding: "3px 10px", fontSize: 12, color: "#dc2626", borderColor: "#dc262655" }}
                           type="button"
-                          onClick={() => { useData.getState().delCoupon(c.code); say("کد حذف شد"); }}
+                          onClick={() => actDelCoupon(c.code)}
                         >
                           حذف
                         </button>
@@ -669,7 +1190,7 @@ export function AdminApp() {
             <div className="adm-top">
               <h1>بنرهای صفحه اصلی</h1>
             </div>
-            <BannerAdd />
+            <BannerAdd onAdd={actAddBanner} />
             <div className="adm-cols" style={{ marginTop: 12 }}>
               {banners.map((b) => (
                 <div className="panel" key={b.id} style={{ padding: 14 }}>
@@ -685,14 +1206,14 @@ export function AdminApp() {
                   <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
                     {b.active ? <span className="badge b-ok">فعال</span> : <span className="badge b-off">غیرفعال</span>}
                     <small style={{ color: "var(--mute)", direction: "ltr" }}>{b.href}</small>
-                    <button className="btn ghost" style={{ padding: "4px 12px", fontSize: 12, marginInlineStart: "auto" }} type="button" onClick={() => useData.getState().toggleBanner(b.id)}>
+                    <button className="btn ghost" style={{ padding: "4px 12px", fontSize: 12, marginInlineStart: "auto" }} type="button" onClick={() => actToggleBanner(b)}>
                       {b.active ? "پنهان کن" : "نمایش بده"}
                     </button>
                     <button
                       className="btn ghost"
                       style={{ padding: "4px 12px", fontSize: 12, color: "#dc2626", borderColor: "#dc262655" }}
                       type="button"
-                      onClick={() => { useData.getState().delBanner(b.id); say("بنر حذف شد"); }}
+                      onClick={() => actDelBanner(b)}
                     >
                       حذف
                     </button>
@@ -725,7 +1246,7 @@ export function AdminApp() {
                   <p style={{ margin: "8px 0", color: "var(--ink)" }}>{m.text}</p>
                   <div style={{ display: "flex", gap: 6 }}>
                     {m.unread && (
-                      <button className="btn" style={{ padding: "5px 14px", fontSize: 12 }} type="button" onClick={() => useData.getState().readMsg(m.id)}>
+                      <button className="btn" style={{ padding: "5px 14px", fontSize: 12 }} type="button" onClick={() => actReadMsg(m.id)}>
                         ✔ خوانده شد
                       </button>
                     )}
@@ -733,7 +1254,7 @@ export function AdminApp() {
                       className="btn ghost"
                       style={{ padding: "5px 14px", fontSize: 12, color: "#dc2626", borderColor: "#dc262655" }}
                       type="button"
-                      onClick={() => { useData.getState().delMsg(m.id); say("پیام حذف شد"); }}
+                      onClick={() => actDelMsg(m.id)}
                     >
                       حذف
                     </button>
@@ -776,8 +1297,8 @@ export function AdminApp() {
               <div className="panel">
                 <b>فروش ۶ ماه اخیر (میلیون تومان)</b>
                 <div className="adm-chart" style={{ marginTop: 14 }}>
-                  {MONTH_SALES.map(([d, v], i) => (
-                    <div key={d} className={i === MONTH_SALES.length - 1 ? "hot" : ""}>
+                  {monthData.map(([d, v], i) => (
+                    <div key={d} className={i === monthData.length - 1 ? "hot" : ""}>
                       <i style={{ height: `${(v / maxMonth) * 100}%` }} />
                       <small>{F(v)}</small>
                       <small>{d}</small>
@@ -860,10 +1381,17 @@ export function AdminApp() {
         )}
 
         {/* ── تنظیمات ── */}
-        {tab === "settings" && <SettingsTab />}
+        {tab === "settings" && <SettingsTab settings={settings} real={real} onSave={actSaveSettings} />}
       </main>
 
-      {prodModal && <ProductForm init={prodModal === "new" ? undefined : prodModal} onClose={() => setProdModal(null)} />}
+      {prodModal && (
+        <ProductForm
+          init={prodModal === "new" ? undefined : prodModal}
+          cats={real && adm.cats.length ? adm.cats : C}
+          onClose={() => setProdModal(null)}
+          onSave={actSaveProduct}
+        />
+      )}
     </div>
   );
 }
@@ -911,12 +1439,12 @@ function FragmentRow({
 
 /* ── افزودن کد تخفیف ── */
 
-function CouponAdd() {
+function CouponAdd({ onAdd }: { onAdd: (code: string, percent: number, max: number) => Promise<boolean> }) {
   const [code, setCode] = useState("");
   const [percent, setPercent] = useState("10");
   const [max, setMax] = useState("300000");
 
-  const add = () => {
+  const add = async () => {
     const c = code.trim().toUpperCase();
     const pc = Number(dg(percent));
     const mx = Number(dg(max));
@@ -924,11 +1452,8 @@ function CouponAdd() {
       useUI.getState().say("کد، درصد و سقف را درست وارد کنید");
       return;
     }
-    if (useData.getState().coupons.some((x) => x.code === c)) {
-      useUI.getState().say("این کد قبلاً ثبت شده");
-      return;
-    }
-    useData.getState().addCoupon({ code: c, percent: pc, max: mx, active: true });
+    const ok = await onAdd(c, pc, mx);
+    if (!ok) return;
     useUI.getState().say("کد تخفیف ساخته شد ✓");
     setCode("");
   };
@@ -959,18 +1484,19 @@ function CouponAdd() {
 
 /* ── افزودن بنر ── */
 
-function BannerAdd() {
+function BannerAdd({ onAdd }: { onAdd: (t: string, d: string, href: string, bg: string) => Promise<boolean> }) {
   const [t, setT] = useState("");
   const [d, setD] = useState("");
   const [href, setHref] = useState("#offers");
   const [bg, setBg] = useState("linear-gradient(135deg,#ff6a1a,#c2410c)");
 
-  const add = () => {
+  const add = async () => {
     if (!t.trim()) {
       useUI.getState().say("عنوان بنر را وارد کنید");
       return;
     }
-    useData.getState().addBanner({ id: Date.now(), t: t.trim(), d: d.trim(), href, bg, active: true });
+    const ok = await onAdd(t.trim(), d.trim(), href, bg);
+    if (!ok) return;
     useUI.getState().say("بنر اضافه شد ✓");
     setT("");
     setD("");
@@ -1017,8 +1543,13 @@ function BannerAdd() {
 
 /* ── تنظیمات فروشگاه ── */
 
-function SettingsTab() {
-  const settings = useData((s) => s.settings);
+function SettingsTab({
+  settings, real, onSave,
+}: {
+  settings: Settings;
+  real: boolean;
+  onSave: (s: Settings) => Promise<boolean>;
+}) {
   const [f, setF] = useState({
     ann: settings.ann,
     phone: settings.phone,
@@ -1027,7 +1558,7 @@ function SettingsTab() {
     shipPeyk: String(settings.shipPeyk),
   });
 
-  const save = () => {
+  const save = async () => {
     const free = Number(dg(f.free));
     const post = Number(dg(f.shipPost));
     const peyk = Number(dg(f.shipPeyk));
@@ -1035,7 +1566,8 @@ function SettingsTab() {
       useUI.getState().say("همه مقادیر را درست وارد کنید");
       return;
     }
-    useData.getState().saveSettings({ ann: f.ann.trim(), phone: f.phone.trim(), free, shipPost: post, shipPeyk: peyk });
+    const ok = await onSave({ ann: f.ann.trim(), phone: f.phone.trim(), free, shipPost: post, shipPeyk: peyk });
+    if (!ok) return;
     useUI.getState().say("تنظیمات ذخیره شد ✓");
   };
 
@@ -1071,7 +1603,9 @@ function SettingsTab() {
           ذخیره تنظیمات
         </button>
         <small style={{ color: "var(--mute)" }}>
-          تغییرات بلافاصله در سایت اعمال می‌شود: نوار اعلان، سبد خرید، صفحه محصول و تسویه‌حساب.
+          {real
+            ? "ذخیره روی دیتابیس — در بارگذاری بعدی سایت برای همهٔ بازدیدکنندگان اعمال می‌شود (نوار اعلان، سبد خرید، تسویه‌حساب)."
+            : "تغییرات بلافاصله در سایت اعمال می‌شود: نوار اعلان، سبد خرید، صفحه محصول و تسویه‌حساب."}
         </small>
       </div>
     </>

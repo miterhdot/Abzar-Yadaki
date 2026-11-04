@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useSyncExternalStore } from "react";
-import { rehydrateAll, useCart, useRoute } from "@/lib/shop-state";
+import { rehydrateAll, useCart, useData, useRoute } from "@/lib/shop-state";
+import { dbFetchCatalog } from "@/lib/supabase";
 import MobileApp from "@/mobile/MobileApp";
 import { AnnBar, Footer, Header } from "./chrome";
 import { CartDrawer } from "./cart-drawer";
@@ -62,6 +63,22 @@ export default function SiteApp() {
   /* hydrate persisted stores after mount (avoids SSR mismatch) */
   useEffect(() => {
     rehydrateAll();
+  }, []);
+
+  /* فاز D3 (دستور ۲۵): کاتالوگ واقعی از دیتابیس — محصولات/بنرها/تنظیمات/نظراتِ تأییدشده.
+     fail-soft: در نبود اتصال، کاتالوگ کد مصوب (مصوبه ۱۰) باقی می‌ماند؛
+     خالی‌بودن محصولات در دیتابیس هم کاتالوگ را خالی نمی‌کند (ضد خالی‌شدن فروشگاه). */
+  useEffect(() => {
+    (async () => {
+      const cat = await dbFetchCatalog();
+      if (!cat) return;
+      useData.setState({
+        ...(cat.prods.length ? { prods: cat.prods } : {}),
+        ...(cat.banners.length ? { banners: cat.banners } : {}),
+        ...(cat.settings ? { settings: cat.settings } : {}),
+        reviews: cat.reviews,
+      });
+    })();
   }, []);
 
   /* hash router sync + initial */
