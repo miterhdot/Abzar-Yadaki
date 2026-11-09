@@ -8,7 +8,7 @@ import { LogoMark } from "./bits";
 export function Header() {
   const go = useRoute((s) => s.go);
   const items = useCart((s) => s.items);
-  const removed = useCart((s) => s.removed);
+  const waitTotal = useCart((s) => s.removed.length + s.saved.length); /* شمارندهٔ کل لیست انتظار (دستور ۲۸) */
   const dr = useUI((s) => s.dr);
   const rdr = useUI((s) => s.rdr);
   const user = useAuth((s) => s.user);
@@ -44,9 +44,9 @@ export function Header() {
         <button className="cartb" type="button" onClick={() => dr(true)}>
           🛒 سبد<b>{F(count)}</b>
         </button>
-        {/* آیکن «لیست کالای حذف‌شده» کنار سبد — قرمز و هایلایت‌دار (دستور ۲۷) */}
-        <button className="cartb rmb" type="button" onClick={() => rdr(true)} title="لیست کالای حذف‌شده">
-          🗑 حذف‌شده‌ها{removed.length > 0 && <b>{F(removed.length)}</b>}
+        {/* آیکن قرمز «لیست انتظار» کنار سبد — دو دسته: حذف‌شده از سبد + در حال بررسی (دستور ۲۸) */}
+        <button className="cartb rmb" type="button" onClick={() => rdr(true)} title="لیست انتظار">
+          ⏳ لیست انتظار{waitTotal > 0 && <b>{F(waitTotal)}</b>}
         </button>
       </div>
       <nav>

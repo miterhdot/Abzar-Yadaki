@@ -12,7 +12,7 @@ export function MobileBar() {
   const rdr = useUI((s) => s.rdr);
   const msh = useUI((s) => s.msh);
   const sheet = useUI((s) => s.sheet);
-  const removedCount = useCart((s) => s.removed.length);
+  const waitTotal = useCart((s) => s.removed.length + s.saved.length); /* شمارندهٔ کل لیست انتظار (دستور ۲۸) */
 
   const on = (h: string) => {
     const cur = page === "home" ? "#home" : page === "product" ? "prod" : `#${page}`;
@@ -45,10 +45,10 @@ export function MobileBar() {
           <span>🛒</span>سبد
           <CartBadge />
         </button>
-        {/* آیکن قرمز «لیست کالای حذف‌شده» کنار سبد (دستور ۲۷) */}
-        <button type="button" className="rmb" onClick={() => rdr(true)} aria-label="لیست کالای حذف‌شده">
-          <span>🗑️</span>حذف‌شده
-          {removedCount > 0 && <b>{F(removedCount)}</b>}
+        {/* تپ قرمز «لیست انتظار» — دو دسته: حذف‌شده از سبد + در حال بررسی (دستور ۲۸) */}
+        <button type="button" className="rmb" onClick={() => rdr(true)} aria-label="لیست انتظار">
+          <span>⏳</span>انتظار
+          {waitTotal > 0 && <b>{F(waitTotal)}</b>}
         </button>
         <button type="button" onClick={() => msh(true)}>
           <span>☰</span>منو

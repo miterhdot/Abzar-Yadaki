@@ -35,13 +35,36 @@ export function Pn({ t, d }: { t: React.ReactNode; d: string }) {
   );
 }
 
-/** add(id) + open drawer — same as design's add() */
+/** add(id) + toast — دستور ۲۸: سبد دیگر به‌صورت خودکار باز نمی‌شود؛
+ *  «به صورت معمول سبد را نباید نمایش بدهی به محض اینکه کالایی را حذف کرد یا از صفحه‌ای کالایی را انتخاب کرد» */
 export function useAddToCart() {
   const add = useCart((s) => s.add);
-  const dr = useUI((s) => s.dr);
   return (id: number, n = 1) => {
     add(id, n);
-    dr(true);
+    useUI.getState().say("به سبد اضافه شد ✓");
+  };
+}
+
+/** ذخیره/برداشتن کالا در دستهٔ «در حال بررسی» لیست انتظار — با ذخیره، لیست خودکار باز می‌شود (دستور ۲۸) */
+export function useWaiting() {
+  const saved = useCart((s) => s.saved);
+  const save = useCart((s) => s.save);
+  const unsave = useCart((s) => s.unsave);
+  const rdr = useUI((s) => s.rdr);
+  return {
+    savedIds: saved.map((x) => x.id),
+    toggle: (id: number) => {
+      const on = saved.some((x) => x.id === id);
+      if (on) {
+        unsave(id);
+        useUI.getState().say("از لیست انتظار حذف شد");
+      } else {
+        save(id);
+        rdr(true); /* به محض انتخاب، لیست انتظار نشان داده می‌شود (دستور ۲۸) */
+        useUI.getState().say("در «لیست انتظار» ذخیره شد ⏳");
+      }
+      return !on;
+    },
   };
 }
 
@@ -71,6 +94,8 @@ export function FavBtn({ id }: { id: number }) {
 /** Product card — 1:1 from design's card() */
 export function ProductCard({ p }: { p: Product }) {
   const onAdd = useAddToCart();
+  const wt = useWaiting();
+  const inWait = wt.savedIds.includes(p.id);
   return (
     <div className="pc">
       <a href={`#p-${p.id}`} className="pi">
@@ -91,9 +116,22 @@ export function ProductCard({ p }: { p: Product }) {
             {p.o ? <s>{F(p.o)}</s> : null}
             <b>{F(p.p)}</b> <small>تومان</small>
           </div>
-          <button className="btn" type="button" onClick={() => onAdd(p.id)}>
-            افزودن
-          </button>
+          <div style={{ display: "flex", gap: 6 }}>
+            <button
+              className={"btn ghost" + (inWait ? " on" : "")}
+              type="button"
+              aria-label={inWait ? "حذف از لیست انتظار" : "ذخیره در لیست انتظار"}
+              aria-pressed={inWait}
+              title={inWait ? "حذف از لیست انتظار" : "ذخیره در لیست انتظار"}
+              style={{ padding: "6px 10px" }}
+              onClick={() => wt.toggle(p.id)}
+            >
+              {inWait ? "✓" : "⏳"}
+            </button>
+            <button className="btn" type="button" onClick={() => onAdd(p.id)}>
+              افزودن
+            </button>
+          </div>
         </div>
       </div>
     </div>

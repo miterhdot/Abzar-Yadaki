@@ -48,21 +48,24 @@ body.mapp-on{background:#d8dee8;padding-bottom:0!important}
 .mbd{padding:10px 10px 12px}.mbd small{color:var(--mute);font-size:11.5px}.mbd h3{margin:0;font-size:13px;line-height:1.6;min-height:42px;font-weight:600}
 .mpp{margin-top:6px;padding-inline-end:38px}.mpp s{display:block;font-size:11px;color:var(--mute);line-height:1.2}.mpp b{font-size:15px}.mpp small{font-size:11px}
 .mad{position:absolute;bottom:10px;inset-inline-end:10px;width:34px;height:34px;border-radius:12px;background:var(--am);color:var(--navy);font-size:22px;font-weight:700;line-height:1}
+/* دکمهٔ ⏳ لیست انتظار روی کارت — کنار دکمهٔ افزودن (دستور ۲۸) */
+.mad.mwt{inset-inline-end:52px;background:#e5484d22;color:#e5484d;font-size:15px}
 .mtr{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:20px 16px 0}.mtr div{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 4px;text-align:center;font-size:11.5px}.mtr span{display:block;font-size:22px}
 .mtab{position:fixed;bottom:0;left:0;right:0;max-width:430px;margin:auto;background:var(--card);border-top:1px solid var(--line);display:flex;padding:6px 6px calc(6px + env(safe-area-inset-bottom,0px));z-index:30;box-shadow:0 -8px 24px #0b1f3a14}
 .mtab a{flex:1;display:flex;flex-direction:column;align-items:center;font-size:11px;color:var(--mute);gap:2px;padding:4px 0;position:relative;font-weight:600}
-/* تپ قرمز «حذف‌شده‌ها» در تپ‌بار — هم‌اندازه با لینک‌ها (دستور ۲۷) */
+/* تپ قرمز «لیست انتظار» در تپ‌بار — هم‌اندازه با لینک‌ها (دستور ۲۸) */
 .mtab button{flex:1;display:flex;flex-direction:column;align-items:center;font-size:11px;color:#e5484d;gap:2px;padding:4px 0;position:relative;font-weight:600;background:none;border:0}
 #mapp .mtab svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .mtab a.on{color:var(--n2)}.mtab a.on:before{content:"";position:absolute;top:-7px;width:26px;height:4px;border-radius:0 0 4px 4px;background:var(--am)}
 .mtab b{position:absolute;top:0;inset-inline-end:28%;background:var(--am);color:var(--navy);border-radius:99px;min-width:18px;font-size:11px;text-align:center}
-/* نشان قرمز شمارندهٔ حذف‌شده‌ها (دستور ۲۷) */
+/* نشان قرمز شمارندهٔ لیست انتظار (دستور ۲۸) */
 .mcn-rm,.mcn-rm2{background:#e5484d!important;color:#fff!important}
 /* دکمهٔ قرمز آیکن کنار سبد در هدر اپ (دستور ۲۷) */
 .mib2.mrmb{background:#e5484d22;color:#e5484d;box-shadow:inset 0 0 0 1px #e5484d55}
 .mhd2 .mib2.mrmb{background:#e5484d22;color:#e5484d}
-/* بخش «لیست کالای حذف‌شده» در صفحه سبد اپ (دستور ۲۷) */
+/* بخش‌های «لیست انتظار» اپ: قرمز = حذف‌شده از سبد، کهربایی = در حال بررسی (دستور ۲۸) */
 .mrmh{color:#e5484d;font-weight:800}
+.msvh{display:flex;align-items:center;gap:6px;color:#ffb703;font-weight:800;font-size:14px;padding:0 16px 8px}
 .mrmsec{margin:6px 0 10px;padding-top:10px;border-top:1px dashed var(--line)}
 .mrmsec .mrmh{display:flex;align-items:center;gap:6px;color:#e5484d;font-weight:800;font-size:14px;padding:0 16px 8px}
 .mrm-empty{display:block;padding:2px 16px 8px;color:var(--mute);font-size:12.5px}

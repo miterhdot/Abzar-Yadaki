@@ -12,7 +12,7 @@ import type { Product } from "@/data/store";
 import { C } from "@/data/store";
 import { F, pd } from "@/lib/format";
 import { cartCount, cartTotal, findProduct, useCart, useData, useRoute, useWish } from "@/lib/shop-state";
-import { AiIcon, CK, Ci, LogoM, PIcon, TabCart, TabCats, TabHome, TabMe, TabRm, WaIcon } from "./icons";
+import { AiIcon, CK, Ci, LogoM, PIcon, TabCart, TabCats, TabHome, TabMe, TabWait, WaIcon } from "./icons";
 import "./app.css";
 
 /* خودروهای شیت انتخاب خودرو — عیناً از فایل طراحی */
@@ -75,15 +75,33 @@ export default function MobileApp() {
   const cartRestore = useCart((s) => s.restore);
   const cartPurge = useCart((s) => s.purgeRemoved);
   const cartClearRemoved = useCart((s) => s.clearRemoved);
+  /* لیست انتظار — دستهٔ «در حال بررسی» (دستور ۲۸) */
+  const savedItems = useCart((s) => s.saved);
+  const cartSave = useCart((s) => s.save);
+  const cartUnsave = useCart((s) => s.unsave);
+  const cartClearSaved = useCart((s) => s.clearSaved);
   const wishIds = useWish((s) => s.ids);
   const wishToggle = useWish((s) => s.toggle);
   const webQ = useRoute((s) => s.q);
   const cnt = cartCount(items);
   const tot = cartTotal(items);
+  const waitTotal = removedItems.length + savedItems.length; /* شمارندهٔ کل لیست انتظار */
 
   const add = (id: number) => {
     cartAdd(id);
     say("به سبد اضافه شد ✓");
+  };
+
+  /* ذخیره/برداشتن کالا در «لیست انتظار» — با ذخیره، شیت لیست باز می‌شود (دستور ۲۸) */
+  const toggleWait = (id: number) => {
+    if (savedItems.some((x) => x.id === id)) {
+      cartUnsave(id);
+      say("از لیست انتظار حذف شد");
+    } else {
+      cartSave(id);
+      setSheet("rm");
+      say("در «لیست انتظار» ذخیره شد ⏳");
+    }
   };
 
   /* ── سوار/پیاده‌سازی: کلاس بدنه + عنوان سند (مطابق <title> طراحی) ── */
@@ -224,16 +242,16 @@ export default function MobileApp() {
     </button>
   );
 
-  /* آیکون قرمز «لیست کالای حذف‌شده» کنار آیکون سبد — شیت لیست را باز می‌کند (دستور ۲۷) */
+  /* آیکون قرمز «لیست انتظار» کنار آیکون سبد — شیت دو دسته‌ای را باز می‌کند (دستور ۲۸) */
   const rmBtn = (extra?: string) => (
     <button
       type="button"
       className={"mib2 mrmb" + (extra ? " " + extra : "")}
       onClick={() => setSheet("rm")}
-      aria-label="لیست کالای حذف‌شده"
+      aria-label="لیست انتظار"
     >
-      <TabRm />
-      {removedItems.length > 0 ? <b className="mcn mcn-rm">{F(removedItems.length)}</b> : null}
+      <TabWait />
+      {waitTotal > 0 ? <b className="mcn mcn-rm">{F(waitTotal)}</b> : null}
     </button>
   );
 
@@ -266,6 +284,17 @@ export default function MobileApp() {
             <b>{F(p.p)}</b> <small>تومان</small>
           </div>
         </div>
+        <button
+          type="button"
+          className="mad mwt"
+          aria-label="ذخیره در لیست انتظار"
+          onClick={(e) => {
+            e.stopPropagation();
+            toggleWait(p.id);
+          }}
+        >
+          {savedItems.some((x) => x.id === p.id) ? "✓" : "⏳"}
+        </button>
         <button
           type="button"
           className="mad"
@@ -452,10 +481,10 @@ export default function MobileApp() {
     </>
   );
 
-  /* ── فهرست کالاهای حذف‌شده از سبد — مشترک بین صفحه سبد و شیت آیکن قرمز (دستور ۲۷) ── */
+  /* ── دستهٔ ۱ لیست انتظار: حذف‌شده از سبد (دستور ۲۷) ── */
   const rmRows =
     removedItems.length === 0 ? (
-      <small className="mrm-empty">چیزی حذف نشده است؛ کالایی که از سبد کم کنید اینجا می‌ماند.</small>
+      <small className="mrm-empty">چیزی از سبد حذف نشده است.</small>
     ) : (
       removedItems.map((x) => {
         const p = findProduct(x.id);
@@ -496,14 +525,54 @@ export default function MobileApp() {
       </button>
     ) : null;
 
-  /* بخش قرمز داخل صفحه سبد — آیکن + عنوان «لیست کالای حذف‌شده» (دستور ۲۷) */
-  const rmSection = (
-    <div className="mrmsec">
-      <div className="mrmh">🗑️ لیست کالای حذف‌شده</div>
-      {rmRows}
-      {rmClear}
-    </div>
-  );
+  /* ── دستهٔ ۲ لیست انتظار: در حال بررسی — کالای انتخاب‌شده با شک (دستور ۲۸) ── */
+  const svRows =
+    savedItems.length === 0 ? (
+      <small className="mrm-empty">کالایی که روی آن شک دارید را در صفحهٔ محصول با «⏳» اینجا بیاورید.</small>
+    ) : (
+      savedItems.map((x) => {
+        const p = findProduct(x.id);
+        return (
+          <div className="mci" key={x.id} style={{ opacity: 0.88 }}>
+            <div className="mim" style={{ display: "grid", placeItems: "center", fontSize: 26 }}>
+              {p ? <PIcon p={p} s={30} /> : "🤔"}
+            </div>
+            <div>
+              <b>{p ? p.n : "کالای حذف‌شده از فروشگاه"}</b>
+              {F(p?.p ?? 0)} تومان
+            </div>
+            <div className="mqt">
+              <button
+                type="button"
+                aria-label="افزودن به سبد"
+                title="افزودن به سبد"
+                onClick={() => add(x.id)}
+              >
+                +
+              </button>
+              <button type="button" aria-label="حذف از لیست" title="حذف از لیست" onClick={() => cartUnsave(x.id)}>
+                ✕
+              </button>
+            </div>
+          </div>
+        );
+      })
+    );
+
+  const svClear =
+    savedItems.length > 0 ? (
+      <button
+        className="mbt mnv"
+        type="button"
+        style={{ margin: "4px 16px 12px", width: "calc(100% - 32px)" }}
+        onClick={() => {
+          cartClearSaved();
+          say("«در حال بررسی» پاک شد");
+        }}
+      >
+        پاک کردن «در حال بررسی»
+      </button>
+    ) : null;
 
   /* cart — با مبلغ ارسال واقعی تنظیمات فروشگاه */
   const ship = tot >= free ? 0 : shipPost;
@@ -522,7 +591,6 @@ export default function MobileApp() {
             دیدن محصولات
           </a>
         </div>
-        {rmSection}
       </>
     ) : (
       <>
@@ -558,7 +626,10 @@ export default function MobileApp() {
                 </button>
                 <span>{F(x.n)}</span>
                 <button type="button" aria-label="کاهش / حذف از سبد" onClick={() => {
-                  if (x.n <= 1) say("از سبد حذف شد — در لیست حذف‌شده‌ها ماند 🗑");
+                  if (x.n <= 1) {
+                    say("به «لیست انتظار» منتقل شد ⏳");
+                    setSheet("rm"); /* به محض حذف، لیست انتظار نشان داده می‌شود (دستور ۲۸) */
+                  }
                   cartChg(x.id, -1);
                 }}>
                   −
@@ -567,7 +638,6 @@ export default function MobileApp() {
             </div>
           );
         })}
-        {rmSection}
         <div className="msm">
           <div className="mrow">
             <span>جمع کالاها</span>
@@ -726,9 +796,19 @@ export default function MobileApp() {
         )}
         {sheet === "rm" && (
           <>
-            <h3 className="mrmh">🗑️ لیست کالای حذف‌شده</h3>
-            {rmRows}
-            {rmClear}
+            <h3 className="mrmh">⏳ لیست انتظار</h3>
+            {/* دستهٔ ۱ (بالاتر): حذف‌شده از سبد */}
+            <div className="mrmsec">
+              <div className="mrmh">🛒 حذف‌شده از سبد</div>
+              {rmRows}
+              {rmClear}
+            </div>
+            {/* دستهٔ ۲: در حال بررسی */}
+            <div className="mrmsec">
+              <div className="msvh">🤔 در حال بررسی</div>
+              {svRows}
+              {svClear}
+            </div>
           </>
         )}
         {sheet === "ai" && (
@@ -770,11 +850,11 @@ export default function MobileApp() {
           سبد
           {cnt > 0 ? <b>{F(cnt)}</b> : null}
         </a>
-        {/* تپ قرمز «حذف‌شده‌ها» — شیت لیست حذف‌شده‌ها (دستور ۲۷) */}
-        <button type="button" className="rmtab" onClick={() => setSheet("rm")} aria-label="لیست کالای حذف‌شده">
-          <TabRm />
-          حذف‌شده
-          {removedItems.length > 0 ? <b className="mcn-rm2">{F(removedItems.length)}</b> : null}
+        {/* تپ قرمز «لیست انتظار» — شیت دو دسته‌ای (دستور ۲۸) */}
+        <button type="button" className="rmtab" onClick={() => setSheet("rm")} aria-label="لیست انتظار">
+          <TabWait />
+          انتظار
+          {waitTotal > 0 ? <b className="mcn-rm2">{F(waitTotal)}</b> : null}
         </button>
         <a href="#app-me" className={view.k === "me" ? "on" : ""}>
           <TabMe />
@@ -790,6 +870,21 @@ export default function MobileApp() {
           {p.o ? <s>{F(p.o)}</s> : null}
           <b>{F(p.p)}</b> <small>تومان</small>
         </div>
+        <button
+          className="mbt"
+          type="button"
+          aria-label={savedItems.some((x) => x.id === p.id) ? "حذف از لیست انتظار" : "ذخیره در لیست انتظار"}
+          style={{
+            flex: "0 0 auto",
+            width: "auto",
+            padding: "13px 14px",
+            background: savedItems.some((x) => x.id === p.id) ? "#e5484d22" : "#e5484d",
+            color: savedItems.some((x) => x.id === p.id) ? "#e5484d" : "#fff",
+          }}
+          onClick={() => toggleWait(p.id)}
+        >
+          {savedItems.some((x) => x.id === p.id) ? "✓" : "⏳"}
+        </button>
         <button className="mbt" type="button" onClick={() => add(p.id)}>
           افزودن به سبد
         </button>

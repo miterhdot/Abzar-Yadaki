@@ -81,15 +81,22 @@ export type CartLine = { id: number; n: number };
 /* فهرست کالاهای حذف‌شده از سبد (دستور ۲۷) — با هر حذف ثبت و تا بازگرداندن/پاک‌سازی می‌ماند */
 export type RemovedLine = { id: number; n: number };
 
+/* دستهٔ «در حال بررسی» لیست انتظار (دستور ۲۸) — کالایی که کاربر از صفحه انتخاب کرده و روی آن شک دارد */
+export type SavedLine = { id: number };
+
 type CartState = {
   items: CartLine[];
   removed: RemovedLine[];
+  saved: SavedLine[];
   add: (id: number, n?: number) => void;
   chg: (id: number, d: number) => void;
   clear: () => void;
   restore: (id: number) => void;
   purgeRemoved: (id: number) => void;
   clearRemoved: () => void;
+  save: (id: number) => void;
+  unsave: (id: number) => void;
+  clearSaved: () => void;
 };
 
 export const useCart = create<CartState>()(
@@ -97,12 +104,22 @@ export const useCart = create<CartState>()(
     (set) => ({
       items: [],
       removed: [],
+      saved: [],
+      /* افزودن به سبد = خروج خودکار کالا از هر دو دستهٔ لیست انتظار (دستور ۲۸) */
       add: (id, n = 1) =>
         set((st) => {
           const line = st.items.find((x) => x.id === id);
           return line
-            ? { items: st.items.map((x) => (x.id === id ? { ...x, n: x.n + n } : x)), removed: st.removed.filter((x) => x.id !== id) }
-            : { items: [...st.items, { id, n }], removed: st.removed.filter((x) => x.id !== id) };
+            ? {
+                items: st.items.map((x) => (x.id === id ? { ...x, n: x.n + n } : x)),
+                removed: st.removed.filter((x) => x.id !== id),
+                saved: st.saved.filter((x) => x.id !== id),
+              }
+            : {
+                items: [...st.items, { id, n }],
+                removed: st.removed.filter((x) => x.id !== id),
+                saved: st.saved.filter((x) => x.id !== id),
+              };
         }),
       chg: (id, d) =>
         set((st) => {
@@ -131,6 +148,10 @@ export const useCart = create<CartState>()(
         }),
       purgeRemoved: (id) => set((st) => ({ removed: st.removed.filter((x) => x.id !== id) })),
       clearRemoved: () => set({ removed: [] }),
+      /* دستهٔ «در حال بررسی» — کالای انتخاب‌شده با شک (دستور ۲۸) */
+      save: (id) => set((st) => (st.saved.some((x) => x.id === id) ? {} : { saved: [{ id }, ...st.saved] })),
+      unsave: (id) => set((st) => ({ saved: st.saved.filter((x) => x.id !== id) })),
+      clearSaved: () => set({ saved: [] }),
     }),
     { name: "abzar-cart", skipHydration: true }
   )

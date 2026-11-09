@@ -4,13 +4,15 @@ import { Fragment, useEffect, useState, type FormEvent } from "react";
 import { Product } from "@/data/store";
 import { F } from "@/lib/format";
 import { useAuth, useData, useRV, useRoute, useUI } from "@/lib/shop-state";
-import { FavBtn, Pn, ProductCard, useAddToCart } from "../bits";
+import { FavBtn, Pn, ProductCard, useAddToCart, useWaiting } from "../bits";
 import { Crumb } from "../bits-helper";
 import { ShopView } from "./shop";
 
 export function ProductView({ p }: { p: Product }) {
   const go = useRoute((s) => s.go);
   const addToCart = useAddToCart();
+  const wt = useWaiting();
+  const inWait = wt.savedIds.includes(p.id); /* وضعیت لیست انتظار (دستور ۲۸) */
   const [qt, setQt] = useState(1);
   const rv = useRV((s) => s.rv);
   const push = useRV((s) => s.push);
@@ -69,6 +71,19 @@ export function ProductView({ p }: { p: Product }) {
               <button className="btn" style={{ width: "100%", padding: 13 }} type="button" onClick={() => addToCart(p.id, qt)}>
                 افزودن به سبد خرید
               </button>
+              {/* ذخیره در لیست انتظار — کالایی که روی آن شک دارید (دستور ۲۸) */}
+              <button
+                className={"btn ghost" + (inWait ? " on" : "")}
+                style={{ width: "100%", padding: 11, marginTop: 8 }}
+                type="button"
+                aria-pressed={inWait}
+                onClick={() => wt.toggle(p.id)}
+              >
+                {inWait ? "✓ در لیست انتظار است" : "⏳ ذخیره در لیست انتظار"}
+              </button>
+              <small style={{ color: "var(--mute)", display: "block", marginTop: 6 }}>
+                کالاهایی که هنوز درباره‌شان مطمئن نیستید، در «لیست انتظار» نگه داشته می‌شوند.
+              </small>
             </div>
             <div className="box">
               ✔ ضمانت اصالت کالا

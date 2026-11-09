@@ -4,7 +4,8 @@ import { useEffect } from "react";
 import { F } from "@/lib/format";
 import { cartCount, cartTotal, findProduct, useCart, useData, useRoute, useUI } from "@/lib/shop-state";
 
-/** Cart drawer — 1:1 from design (side panel on desktop, bottom sheet on mobile) */
+/** Cart drawer — 1:1 from design (side panel on desktop, bottom sheet on mobile)
+ *  دستور ۲۸: بخش «لیست کالای حذف‌شده» از داخل سبد حذف شد؛ حذف کالا → کشوی «لیست انتظار» خودکار باز می‌شود */
 export function CartDrawer() {
   const open = useUI((s) => s.drawer);
   const dr = useUI((s) => s.dr);
@@ -12,9 +13,6 @@ export function CartDrawer() {
   const say = useUI((s) => s.say);
   const items = useCart((s) => s.items);
   const chg = useCart((s) => s.chg);
-  const removed = useCart((s) => s.removed);
-  const restore = useCart((s) => s.restore);
-  const purge = useCart((s) => s.purgeRemoved);
   const go = useRoute((s) => s.go);
   const free = useData((s) => s.settings.free);
 
@@ -62,7 +60,11 @@ export function CartDrawer() {
                       type="button"
                       title="کاهش / حذف از سبد"
                       onClick={() => {
-                        if (x.n <= 1) say("از سبد حذف شد — در «لیست کالای حذف‌شده» ماند 🗑");
+                        if (x.n <= 1) {
+                          say("به «لیست انتظار» منتقل شد ⏳");
+                          dr(false);
+                          rdr(true); /* به محض حذف، لیست انتظار نشان داده می‌شود (دستور ۲۸) */
+                        }
                         chg(x.id, -1);
                       }}
                     >
@@ -86,57 +88,6 @@ export function CartDrawer() {
           </>
         )}
       </div>
-      {/* بخش «لیست کالای حذف‌شده» داخل سبد — با همان آیکن قرمز (دستور ۲۷) */}
-      <div className="rmsec">
-        <div className="rmh">
-          🗑️ لیست کالای حذف‌شده
-          {removed.length > 0 && (
-            <button
-              className="btn ghost"
-              style={{ marginInlineStart: "auto", padding: "2px 8px", fontSize: 12 }}
-              type="button"
-              onClick={() => {
-                dr(false);
-                rdr(true);
-              }}
-            >
-              نمای کامل
-            </button>
-          )}
-        </div>
-        {removed.length === 0 ? (
-          <small style={{ color: "var(--mute)" }}>چیزی حذف نشده است؛ کالایی که از سبد کم کنید اینجا می‌ماند.</small>
-        ) : (
-          removed.map((x) => {
-            const p = findProduct(x.id);
-            return (
-              <div className="ci" key={x.id}>
-                <span>
-                  {p ? (
-                    <>
-                      {p.e} {p.n}
-                    </>
-                  ) : (
-                    "کالای حذف‌شده از فروشگاه"
-                  )}
-                  <br />
-                  <small>
-                    {F(x.n)} × {F(p?.p ?? 0)}
-                  </small>
-                </span>
-                <span>
-                  <button className="btn ghost" type="button" onClick={() => { restore(x.id); say("به سبد بازگشت ✓"); }} title="بازگرداندن به سبد">
-                    ↩ بازگرداندن
-                  </button>{" "}
-                  <button className="btn ghost" type="button" onClick={() => purge(x.id)} title="حذف از این لیست">
-                    ✕
-                  </button>
-                </span>
-              </div>
-            );
-          })
-        )}
-      </div>
       <button className="btn" style={{ width: "100%" }} type="button" onClick={() => { dr(false); go("checkout", { q: "" }); }}>
         ادامه و پرداخت امن
       </button>
@@ -150,8 +101,8 @@ export function CartBadge({ mobile = false }: { mobile?: boolean }) {
   return <b>{F(cartCount(items))}</b>;
 }
 
-/** کشوی «لیست کالای حذف‌شده» — با آیکن قرمز هدر/نوار پایین باز می‌شود (دستور ۲۷) */
-export function RemovedDrawer() {
+/** کشوی «لیست انتظار» — دو دسته: «حذف‌شده از سبد» (بالاتر) + «در حال بررسی» (دستور ۲۸) */
+export function WaitingDrawer() {
   const open = useUI((s) => s.rdrw);
   const rdr = useUI((s) => s.rdr);
   const say = useUI((s) => s.say);
@@ -159,6 +110,10 @@ export function RemovedDrawer() {
   const restore = useCart((s) => s.restore);
   const purge = useCart((s) => s.purgeRemoved);
   const clearRemoved = useCart((s) => s.clearRemoved);
+  const saved = useCart((s) => s.saved);
+  const unsave = useCart((s) => s.unsave);
+  const clearSaved = useCart((s) => s.clearSaved);
+  const add = useCart((s) => s.add);
 
   /* keyboard: Esc closes the drawer */
   useEffect(() => {
@@ -170,61 +125,136 @@ export function RemovedDrawer() {
     return () => window.removeEventListener("keydown", onKey);
   }, [open, rdr]);
 
+  const empty = removed.length === 0 && saved.length === 0;
+
   return (
-    <aside className={"dr" + (open ? " open" : "")} role="dialog" aria-modal="true" aria-label="لیست کالای حذف‌شده">
+    <aside className={"dr" + (open ? " open" : "")} role="dialog" aria-modal="true" aria-label="لیست انتظار">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <b className="rmh" style={{ margin: 0, padding: 0, border: 0 }}>
-          🗑️ لیست کالای حذف‌شده
+          ⏳ لیست انتظار
         </b>
         <button className="btn ghost" type="button" onClick={() => rdr(false)}>
           ✕
         </button>
       </div>
-      {removed.length === 0 ? (
-        <p>کالایی از سبد حذف نشده است. با کم‌کردن تعداد هر کالا تا صفر، همین‌جا نگه داشته می‌شود.</p>
+      {empty ? (
+        <p>
+          لیست انتظار خالی است.
+          <br />
+          <small style={{ color: "var(--mute)" }}>
+            کالایی که از سبد حذف کنید یا از صفحه با «⏳ ذخیره در لیست انتظار» علامت بزنید، همین‌جا نگه داشته می‌شود.
+          </small>
+        </p>
       ) : (
         <>
-          <div>
-            {removed.map((x) => {
-              const p = findProduct(x.id);
-              return (
-                <div className="ci" key={x.id}>
-                  <span>
-                    {p ? (
-                      <>
-                        {p.e} {p.n}
-                      </>
-                    ) : (
-                      "کالای حذف‌شده از فروشگاه"
-                    )}
-                    <br />
-                    <small>
-                      {F(x.n)} × {F(p?.p ?? 0)}
-                    </small>
-                  </span>
-                  <span>
-                    <button className="btn ghost" type="button" onClick={() => { restore(x.id); say("به سبد بازگشت ✓"); }} title="بازگرداندن به سبد">
-                      ↩ بازگرداندن
-                    </button>{" "}
-                    <button className="btn ghost" type="button" onClick={() => purge(x.id)} title="حذف از این لیست">
-                      ✕
-                    </button>
-                  </span>
-                </div>
-              );
-            })}
+          {/* ── دستهٔ ۱ (بالاتر): حذف‌شده از سبد ── */}
+          <div className="rmsec">
+            <div className="rmh">
+              🛒 حذف‌شده از سبد
+              {removed.length > 0 && (
+                <button
+                  className="btn ghost"
+                  style={{ marginInlineStart: "auto", padding: "2px 8px", fontSize: 12 }}
+                  type="button"
+                  onClick={() => {
+                    clearRemoved();
+                    say("حذف‌شده‌ها پاک شد");
+                  }}
+                >
+                  پاک کردن
+                </button>
+              )}
+            </div>
+            {removed.length === 0 ? (
+              <small style={{ color: "var(--mute)" }}>چیزی از سبد حذف نشده است.</small>
+            ) : (
+              removed.map((x) => {
+                const p = findProduct(x.id);
+                return (
+                  <div className="ci" key={x.id}>
+                    <span>
+                      {p ? (
+                        <>
+                          {p.e} {p.n}
+                        </>
+                      ) : (
+                        "کالای حذف‌شده از فروشگاه"
+                      )}
+                      <br />
+                      <small>
+                        {F(x.n)} × {F(p?.p ?? 0)}
+                      </small>
+                    </span>
+                    <span>
+                      <button className="btn ghost" type="button" onClick={() => { restore(x.id); say("به سبد بازگشت ✓"); }} title="بازگرداندن به سبد">
+                        ↩ بازگرداندن
+                      </button>{" "}
+                      <button className="btn ghost" type="button" onClick={() => purge(x.id)} title="حذف از این لیست">
+                        ✕
+                      </button>
+                    </span>
+                  </div>
+                );
+              })
+            )}
           </div>
-          <button
-            className="btn ghost"
-            style={{ width: "100%", marginTop: 12 }}
-            type="button"
-            onClick={() => {
-              clearRemoved();
-              say("لیست حذف‌شده‌ها پاک شد");
-            }}
-          >
-            پاک کردن کل لیست
-          </button>
+
+          {/* ── دستهٔ ۲: در حال بررسی (کالای انتخاب‌شده با شک) ── */}
+          <div className="rmsec">
+            <div className="svh">
+              🤔 در حال بررسی
+              {saved.length > 0 && (
+                <button
+                  className="btn ghost"
+                  style={{ marginInlineStart: "auto", padding: "2px 8px", fontSize: 12 }}
+                  type="button"
+                  onClick={() => {
+                    clearSaved();
+                    say("«در حال بررسی» پاک شد");
+                  }}
+                >
+                  پاک کردن
+                </button>
+              )}
+            </div>
+            {saved.length === 0 ? (
+              <small style={{ color: "var(--mute)" }}>
+                کالایی که روی آن شک دارید را در صفحهٔ محصول با «⏳ ذخیره در لیست انتظار» اینجا بیاورید.
+              </small>
+            ) : (
+              saved.map((x) => {
+                const p = findProduct(x.id);
+                return (
+                  <div className="ci" key={x.id}>
+                    <span>
+                      {p ? (
+                        <>
+                          {p.e} {p.n}
+                        </>
+                      ) : (
+                        "کالای حذف‌شده از فروشگاه"
+                      )}
+                      <br />
+                      <small>{F(p?.p ?? 0)} تومان</small>
+                    </span>
+                    <span>
+                      <button
+                        className="btn ghost"
+                        type="button"
+                        onClick={() => { add(x.id, 1); say("به سبد اضافه شد ✓"); }}
+                        title="افزودن به سبد"
+                      >
+                        + افزودن به سبد
+                      </button>{" "}
+                      <button className="btn ghost" type="button" onClick={() => unsave(x.id)} title="حذف از این لیست">
+                        ✕
+                      </button>
+                    </span>
+                  </div>
+                );
+              })
+            )}
+          </div>
         </>
       )}
     </aside>
