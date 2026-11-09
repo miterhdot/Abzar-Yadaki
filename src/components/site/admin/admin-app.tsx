@@ -15,7 +15,7 @@ import {
   C, CUSTOMERS, MONTH_SALES, OrderStatus, Product, STATUS_FA, WEEK_SALES,
   type Banner, type Coupon, type Msg, type Order, type Review, type Settings,
 } from "@/data/store";
-import { F, dg } from "@/lib/format";
+import { F, dg, normFa } from "@/lib/format";
 import { useAdmin, useData, useUI } from "@/lib/shop-state";
 import {
   AdmCoupon, AdmOrderRow, dbAddBanner, dbAddCoupon, dbAdminBanners, dbAdminCoupons,
@@ -639,7 +639,9 @@ export function AdminApp() {
   const unread = msgs.filter((m) => m.unread).length;
   const pendingReviews = reviews.filter((r) => r.status === "pending").length;
   const outOfStock = prods.filter((p) => !p.s);
-  const prodsList = prods.filter((p) => !qProd || p.n.includes(qProd) || p.b.includes(qProd));
+  /* دستور ۳۲ (A1): جستجوی فارسی نرمال‌شده در پنل ادمین */
+  const nqProd = normFa(qProd);
+  const prodsList = prods.filter((p) => !nqProd || normFa(p.n).includes(nqProd) || normFa(p.b).includes(nqProd));
 
   /* گزارش‌ها (هر دو حالت) */
   const doneTotal = orders.filter((o) => o.status === "done").reduce((a, o) => a + o.total, 0);

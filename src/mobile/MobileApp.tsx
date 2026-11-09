@@ -10,7 +10,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent } from "react";
 import type { Product } from "@/data/store";
 import { C } from "@/data/store";
-import { F, pd } from "@/lib/format";
+import { F, pd, normFa } from "@/lib/format";
 import { cartCount, cartTotal, findProduct, useCart, useData, useRoute, useWish } from "@/lib/shop-state";
 import { AiIcon, CK, Ci, LogoM, PIcon, TabCart, TabCats, TabHome, TabMe, TabWait, WaIcon } from "./icons";
 import "./app.css";
@@ -460,7 +460,9 @@ export default function MobileApp() {
   /* cats — اگر از جستجوی نسخه وب (#shop) روی موبایل بیاید، عبارت جستجو حفظ می‌شود */
   const effQ = !q && hash.replace(/^#/, "") === "shop" ? webQ : q;
   /* دستور ۲۹: جستجو شامل نام و برند — هم‌سو با نسخهٔ وب */
-  const list = prods.filter((p) => (!cat || p.c === cat) && (!effQ || p.n.includes(effQ) || p.b.includes(effQ)));
+  /* دستور ۳۲ (A1): جستجوی فارسی نرمال‌شده — هم‌سو با وب و ادمین */
+  const neq = normFa(effQ);
+  const list = prods.filter((p) => (!cat || p.c === cat) && (!neq || normFa(p.n).includes(neq) || normFa(p.b).includes(neq)));
   const catsView = (
     <>
       <div className="mhd2">

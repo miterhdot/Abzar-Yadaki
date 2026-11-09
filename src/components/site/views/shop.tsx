@@ -2,6 +2,7 @@
 
 import { C } from "@/data/store";
 import { useData, useRoute } from "@/lib/shop-state";
+import { normFa } from "@/lib/format";
 import { ProductCard } from "../bits";
 
 export function ShopView() {
@@ -13,7 +14,9 @@ export function ShopView() {
   const prods = useData((s) => s.prods);
 
   /* دستور ۲۹: جستجو شامل نام و برند (جای جستجو می‌گوید «نام قطعه، کد فنی یا خودرو») */
-  let list = prods.filter((p) => (!cat || p.c === cat) && (!q || p.n.includes(q) || p.b.includes(q)));
+  /* دستور ۳۲ (A1): جستجوی فارسی نرمال‌شده — ي/ی، ك/ک، ارقام، نیم‌فاصله */
+  const nq = normFa(q);
+  let list = prods.filter((p) => (!cat || p.c === cat) && (!nq || normFa(p.n).includes(nq) || normFa(p.b).includes(nq)));
   if (sort === "a") list = [...list].sort((a, b) => a.p - b.p);
   if (sort === "d") list = [...list].sort((a, b) => b.p - a.p);
 

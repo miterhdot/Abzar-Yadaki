@@ -5,6 +5,7 @@
 
 import { NextResponse } from "next/server";
 import ZAI from "z-ai-web-dev-sdk";
+import { clientIp, rateLimit, tooMany } from "@/lib/rate-limit";
 
 type CatItem = { id: number; n: string; c: string; p: number };
 
@@ -45,6 +46,10 @@ const sysOf = (car: string, catalog: CatItem[]): string =>
 
 export async function POST(req: Request) {
   try {
+    /* دستور ۳۲ (A2): سقف ۱۰ درخواست LLM در دقیقه برای هر IP — مسیر پرهزینه */
+    const rl = rateLimit(`ai:${clientIp(req)}`, 10, 60_000);
+    if (!rl.ok) return tooMany(rl.retryAfter);
+
     const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
     const car = typeof body?.car === "string" ? body.car.slice(0, 40) : "";
     const catalog = sanitizeCatalog(body?.catalog);
