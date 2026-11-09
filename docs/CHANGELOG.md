@@ -4,6 +4,29 @@
 
 ---
 
+## [دستور ۳۰ — جست‌وجوی گیت‌هاب: اسکریپت/ریپو/طراحی مرتبط با فروشگاه + بازسازی چهارم زیرساخت] — ۱۴۰۵/۰۸/۱۹
+
+**دستور مدیر:** توی گیت‌هاب بگرد اسکیریپت و ریپو و طراحی مرتبط با فروشگاه پیدا کن.
+
+**بازیابی زیرساخت (بدون تغییر کد):**
+- سندباکس چهارمین بار بازیابی شد: HEAD لوکال = `60db365` (کلوون کم‌عمق)، `secrets/` خالی، ریموت بدون توکن، `upload/` در دیسک حذف‌شده — هیچ محتوای پوش‌نشده‌ای وجود نداشت
+- `git fetch --unshallow` + `reset --hard origin/main` → لوکال = ریموت = `8123567` (شامل قابلیت‌های ۲۸ و ۲۹ از جلسهٔ قبل)
+- `secrets/` بازسازی شد — هر سه توکن راستی‌آزمایی 200 (GitHub `/user` / ساپابیس `/v1/projects` / ورسل `/v9/projects`)؛ ریموت `.git/config` طبق مصوبهٔ ۶ (ls-remote احرازدار سبز)
+
+**جست‌وجوی گیت‌هاب (API احرازدار — ۱۷ پرس‌وجو + ریپوهای اکانت مدیر):**
+- **اکانت مدیر (`miterhdot`):** فقط همین ریپو — `Abzar-Yadaki`
+- **هم‌استک با ما (Next.js/TS + Supabase + RTL):** `clonglam/HiyoRi-Ecommerce-Nextjs-Supabase` ⭐۱۸۸ (CMS اختصاصی)، `taiwo-adewale/ecommerce-admin` ⭐۱۲۸ (داشبورد ادمین shadcn/ui + Supabase + React Query)، `alisadeghi192/nextjs-full-stack-ecommerce-giahland` ⭐۱۳ (فارسی)
+- **کلون/طراحی فارسی:** `kamalheydari/digikala-clone-nextjs` ⭐۴۷، `roshana01/digikala-template` ⭐۱۶، `sobhanaz/digikala-clone` ⭐۵ (Nuxt3+Go، OTP موبایل)، `mahdyarmonfared/boom` (React 19 + Tailwind v4)، `mahsamb/persian-ecommerce-ui-demo` (React 19 RTL)
+- **ابزار یدکی/قطعات خودرو:** `usmanfaryadgujjar/Auto_and_Spare_Parts_Final_Year_Php_Project` ⭐۱۷، `darshancoder/Advance-auto-Parts-Clone` ⭐۱۰، `ahmadparvej/spareshub-automobiles`، `dubeygaura/autusin-auto-parts-shop` (قالب فیلتر پیشرفته)، `Pearl-com/pearl-auto-parts-fitment-advisor` (جست‌وجوی VIN/OEM — ایدهٔ آینده)، `KolegaLazeta/AutoDelovi` (Laravel)
+- **درگاه پرداخت (پیش‌نیاز فاز D4):** `cerpinn/monopay` ⭐۱۴۱ (Node/TS — چنددرگاهی)، `siamak/zarinpal-checkout` ⭐۸۳ (TS)، `ali-zahedi/az-iranian-bank-gateways` ⭐۶۱۷ (مرجع همهٔ درگاه‌ها)، `AbanGateway/docs` ⭐۸ (کارت‌به‌کارت با تأیید پیامکی)
+- **UI کیت/سیستم طراحی RTL فارسی:** `Alirewa/persian-ui-kit` (RTL + وزیرمتن + جلالی + OTP)، `mani37-18/RTL-UI-kit` (کیت فیگما)، `shakiba-shademani/reusable-ui-kit` (Tailwind v4 + Storybook)
+- **مراجع جهانی:** `vercel/commerce` ⭐۱۴۳۱۱، `medusajs/nextjs-starter-medusa` ⭐۲۷۸۳، `adrianhajdin/ecommerce_sanity_stripe` ⭐۲۳۱۳، `saleor/storefront` ⭐۱۶۴۱، `reliverse/relivator` ⭐۱۵۶۷، `ndimatteo/HULL` ⭐۱۴۴۵
+- **داده/ابزار مکمل:** `Hameds/APIs-made-in-Iran` ⭐۲۱۶۶، `Manzoomeh/iran-supermarket-catalog` ⭐۳ (الگوی کاتالوگ با تصویر)، `sepehr071/iran-mcp` ⭐۲۴۰ (دیجی‌کالا/ترب/دیوار برای هوش مصنوعی)
+
+**وضعیت:** ✅ کامل — گزارش کامل در گفتگوی همان لحظه؛ بدون تغییر کد (docs فقط)
+
+---
+
 ## [دستور ۲۹ — ممیزی عمیق سیم‌کشی کل سایت + رفع ۵ اشکال رفت‌وبرگشت] — ۱۴۰۵/۰۸/۱۸
 
 **دستور مدیر:** سیم‌کشی تمام قسمت‌ها و صفحات به همدیگر را بررسی کن؛ لینک‌سازی‌ها درست باشد؛ همهٔ قسمت‌ها عمیق بررسی شود و رفت‌وبرگشت‌ها درست باشد.
