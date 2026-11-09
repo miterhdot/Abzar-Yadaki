@@ -5,7 +5,7 @@ import { rehydrateAll, useCart, useData, useRoute } from "@/lib/shop-state";
 import { dbFetchCatalog } from "@/lib/supabase";
 import MobileApp from "@/mobile/MobileApp";
 import { AnnBar, Footer, Header } from "./chrome";
-import { CartDrawer } from "./cart-drawer";
+import { CartDrawer, RemovedDrawer } from "./cart-drawer";
 import { MobileBar, Toast } from "./mobile-bar";
 import { HomeView } from "./views/home";
 import { ShopView } from "./views/shop";
@@ -149,6 +149,7 @@ export default function SiteApp() {
       </main>
       <Footer />
       <CartDrawer />
+      <RemovedDrawer />
       <MobileBar />
       <Toast />
     </>

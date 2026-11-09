@@ -1,15 +1,18 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRoute, useUI } from "@/lib/shop-state";
+import { useCart, useRoute, useUI } from "@/lib/shop-state";
+import { F } from "@/lib/format";
 import { CartBadge } from "./cart-drawer";
 
 /** Mobile bottom tab bar + menu bottom-sheet — 1:1 from design */
 export function MobileBar() {
   const page = useRoute((s) => s.page);
   const dr = useUI((s) => s.dr);
+  const rdr = useUI((s) => s.rdr);
   const msh = useUI((s) => s.msh);
   const sheet = useUI((s) => s.sheet);
+  const removedCount = useCart((s) => s.removed.length);
 
   const on = (h: string) => {
     const cur = page === "home" ? "#home" : page === "product" ? "prod" : `#${page}`;
@@ -41,6 +44,11 @@ export function MobileBar() {
         <button type="button" onClick={() => dr(true)}>
           <span>🛒</span>سبد
           <CartBadge />
+        </button>
+        {/* آیکن قرمز «لیست کالای حذف‌شده» کنار سبد (دستور ۲۷) */}
+        <button type="button" className="rmb" onClick={() => rdr(true)} aria-label="لیست کالای حذف‌شده">
+          <span>🗑️</span>حذف‌شده
+          {removedCount > 0 && <b>{F(removedCount)}</b>}
         </button>
         <button type="button" onClick={() => msh(true)}>
           <span>☰</span>منو

@@ -78,23 +78,31 @@ export const useRoute = create<RouteState>()((set) => ({
 
 export type CartLine = { id: number; n: number };
 
+/* فهرست کالاهای حذف‌شده از سبد (دستور ۲۷) — با هر حذف ثبت و تا بازگرداندن/پاک‌سازی می‌ماند */
+export type RemovedLine = { id: number; n: number };
+
 type CartState = {
   items: CartLine[];
+  removed: RemovedLine[];
   add: (id: number, n?: number) => void;
   chg: (id: number, d: number) => void;
   clear: () => void;
+  restore: (id: number) => void;
+  purgeRemoved: (id: number) => void;
+  clearRemoved: () => void;
 };
 
 export const useCart = create<CartState>()(
   persist(
     (set) => ({
       items: [],
+      removed: [],
       add: (id, n = 1) =>
         set((st) => {
           const line = st.items.find((x) => x.id === id);
           return line
-            ? { items: st.items.map((x) => (x.id === id ? { ...x, n: x.n + n } : x)) }
-            : { items: [...st.items, { id, n }] };
+            ? { items: st.items.map((x) => (x.id === id ? { ...x, n: x.n + n } : x)), removed: st.removed.filter((x) => x.id !== id) }
+            : { items: [...st.items, { id, n }], removed: st.removed.filter((x) => x.id !== id) };
         }),
       chg: (id, d) =>
         set((st) => {
@@ -102,10 +110,27 @@ export const useCart = create<CartState>()(
           if (!line) return {};
           const next = line.n + d;
           return next < 1
-            ? { items: st.items.filter((x) => x.id !== id) }
+            ? {
+                items: st.items.filter((x) => x.id !== id),
+                removed: [{ id, n: line.n }, ...st.removed.filter((x) => x.id !== id)],
+              }
             : { items: st.items.map((x) => (x.id === id ? { ...x, n: next } : x)) };
         }),
       clear: () => set({ items: [] }),
+      restore: (id) =>
+        set((st) => {
+          const rm = st.removed.find((x) => x.id === id);
+          if (!rm) return {};
+          const line = st.items.find((x) => x.id === id);
+          return {
+            removed: st.removed.filter((x) => x.id !== id),
+            items: line
+              ? st.items.map((x) => (x.id === id ? { ...x, n: x.n + rm.n } : x))
+              : [...st.items, { id, n: rm.n }],
+          };
+        }),
+      purgeRemoved: (id) => set((st) => ({ removed: st.removed.filter((x) => x.id !== id) })),
+      clearRemoved: () => set({ removed: [] }),
     }),
     { name: "abzar-cart", skipHydration: true }
   )
@@ -294,20 +319,24 @@ export const rehydrateAll = () => {
 type UIState = {
   drawer: boolean;
   sheet: boolean;
+  rdrw: boolean; /* کشوی «لیست کالای حذف‌شده» (دستور ۲۷) */
   toast: string;
   toastId: number;
   dr: (open: boolean) => void;
   msh: (open: boolean) => void;
+  rdr: (open: boolean) => void;
   say: (msg: string) => void;
 };
 
 export const useUI = create<UIState>()((set) => ({
   drawer: false,
   sheet: false,
+  rdrw: false,
   toast: "",
   toastId: 0,
   dr: (open) => set({ drawer: open }),
   msh: (open) => set({ sheet: open }),
+  rdr: (open) => set({ rdrw: open }),
   say: (msg) => set((st) => ({ toast: msg, toastId: st.toastId + 1 })),
 }));
 

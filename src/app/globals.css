@@ -27,6 +27,9 @@ header{background:var(--navy);color:#fff;position:sticky;top:0;z-index:20}
 .search button{border:0;background:var(--or);color:#fff;padding:0 16px;border-radius:10px 0 0 10px}
 .cartb{position:relative;background:#ffffff1a;border:0;color:#fff;padding:8px 14px;border-radius:10px}
 .cartb b{position:absolute;top:-6px;left:-6px;background:var(--or);border-radius:99px;min-width:20px;font-size:12px;text-align:center}
+/* آیکن قرمز «لیست کالای حذف‌شده» — هایلایت‌دار (دستور ۲۷) */
+.cartb.rmb{background:#e5484d26;border:1px solid #e5484d59;color:#ffc0c3}
+.cartb.rmb b{background:#e5484d;color:#fff}
 nav{background:var(--navy2);overflow-x:auto;white-space:nowrap}nav .w{display:flex;gap:22px;padding:6px 16px;font-size:14px;color:#dbe7f7}
 .hero{background:radial-gradient(900px 400px at 80% 0,#1e5aa0 0,transparent 60%),var(--navy);color:#fff;padding:40px 0 56px}
 .hero .w{display:grid;grid-template-columns:1.1fr .9fr;gap:24px;align-items:center}
@@ -55,6 +58,9 @@ h2{font-size:22px;margin:36px 0 14px;display:flex;justify-content:space-between;
 .ok{color:var(--ok);font-weight:600}
 .dr{position:fixed;inset:0 auto 0 0;width:min(380px,100%);background:var(--card);z-index:40;padding:16px;transform:translateX(-105%);transition:transform .3s,visibility 0s .3s;visibility:hidden;overflow:auto;box-shadow:10px 0 40px #0006;padding-top:calc(16px + env(safe-area-inset-top,0px))}.dr.open{transform:none;visibility:visible;transition:transform .3s}
 .ci{display:flex;justify-content:space-between;gap:8px;padding:10px 0;border-bottom:1px solid var(--line);font-size:14px}
+/* بخش لیست حذف‌شده‌ها (دستور ۲۷) */
+.rmh{display:flex;align-items:center;gap:6px;color:#ff8a8f;font-weight:800;font-size:14px}
+.rmsec{margin-top:12px;padding-top:12px;border-top:1px dashed var(--line)}
 footer{background:var(--navy);color:#b9c9e0;margin-top:48px;padding:28px 0 20px;font-size:14px}footer .w{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:18px}footer b{color:#fff}
 .sticky{display:none}
 @media(max-width:760px){.hero .w,.pd{grid-template-columns:1fr}.fit{grid-template-columns:1fr 1fr}.trust{grid-template-columns:1fr 1fr}.hd{flex-wrap:wrap}.search{order:3;flex-basis:100%}
@@ -96,7 +102,7 @@ h2{position:relative;padding-inline-start:16px}h2:before{content:"";position:abs
 .chips{display:flex;gap:8px;overflow-x:auto;padding:8px 16px;background:var(--navy2)}.chips a{flex:0 0 auto;background:#ffffff1a;color:#fff;border-radius:99px;padding:3px 14px;font-size:13px}
 .hero{padding:26px 0 44px}.hero h1{font-size:26px}.fit select{padding:12px}.fit .btn{grid-column:1/-1;padding:12px}.toast{bottom:140px}
 .tb{display:flex;position:fixed;bottom:0;inset-inline:0;z-index:30;background:var(--card);border-top:1px solid var(--line);padding:6px 4px calc(6px + env(safe-area-inset-bottom,0px));box-shadow:0 -6px 20px #0b1f3a18}
-.tb a,.tb button{flex:1;display:flex;flex-direction:column;align-items:center;font-size:11px;color:var(--mute);background:none;border:0;position:relative;line-height:1.5;padding:0}.tb span{font-size:20px}.tb .on{color:var(--or);font-weight:700}.tb b{position:absolute;top:-2px;inset-inline-end:22%;background:var(--or);color:#fff;border-radius:99px;min-width:17px;font-size:10px;text-align:center}
+.tb a,.tb button{flex:1;display:flex;flex-direction:column;align-items:center;font-size:11px;color:var(--mute);background:none;border:0;position:relative;line-height:1.5;padding:0}.tb span{font-size:20px}.tb .on{color:var(--or);font-weight:700}.tb b{position:absolute;top:-2px;inset-inline-end:22%;background:var(--or);color:#fff;border-radius:99px;min-width:17px;font-size:10px;text-align:center}.tb button.rmb{color:#ff8a8f}.tb button.rmb b{background:#e5484d}
 .sticky{bottom:calc(58px + env(safe-area-inset-bottom,0px));padding-bottom:10px}}
 @media(max-width:760px){
 input,select,textarea{font-size:16px!important}.btn,.tb a,.tb button,.qty button{min-height:44px}.btn{display:inline-flex;align-items:center;justify-content:center}

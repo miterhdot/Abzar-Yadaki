@@ -147,7 +147,7 @@ export function HomeView() {
             style={{ gridTemplateColumns: "1fr auto", marginTop: 10 }}
             onSubmit={(e) => {
               e.preventDefault();
-              useUI.say("عضویت ثبت شد ✓");
+              useUI.getState().say("عضویت ثبت شد ✓");
               e.currentTarget.reset();
             }}
           >

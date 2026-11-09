@@ -8,7 +8,9 @@ import { LogoMark } from "./bits";
 export function Header() {
   const go = useRoute((s) => s.go);
   const items = useCart((s) => s.items);
+  const removed = useCart((s) => s.removed);
   const dr = useUI((s) => s.dr);
+  const rdr = useUI((s) => s.rdr);
   const user = useAuth((s) => s.user);
   const wishCount = useWish((s) => s.ids.length);
   const count = items.reduce((a, x) => a + x.n, 0);
@@ -41,6 +43,10 @@ export function Header() {
         </a>
         <button className="cartb" type="button" onClick={() => dr(true)}>
           🛒 سبد<b>{F(count)}</b>
+        </button>
+        {/* آیکن «لیست کالای حذف‌شده» کنار سبد — قرمز و هایلایت‌دار (دستور ۲۷) */}
+        <button className="cartb rmb" type="button" onClick={() => rdr(true)} title="لیست کالای حذف‌شده">
+          🗑 حذف‌شده‌ها{removed.length > 0 && <b>{F(removed.length)}</b>}
         </button>
       </div>
       <nav>

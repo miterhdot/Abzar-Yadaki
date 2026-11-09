@@ -12,7 +12,7 @@ import type { Product } from "@/data/store";
 import { C } from "@/data/store";
 import { F, pd } from "@/lib/format";
 import { cartCount, cartTotal, findProduct, useCart, useData, useRoute, useWish } from "@/lib/shop-state";
-import { AiIcon, CK, Ci, LogoM, PIcon, TabCart, TabCats, TabHome, TabMe, WaIcon } from "./icons";
+import { AiIcon, CK, Ci, LogoM, PIcon, TabCart, TabCats, TabHome, TabMe, TabRm, WaIcon } from "./icons";
 import "./app.css";
 
 /* خودروهای شیت انتخاب خودرو — عیناً از فایل طراحی */
@@ -53,7 +53,7 @@ export default function MobileApp() {
   const [cat, setCat] = useState("");
   const [q, setQ] = useState("");
   const [car, setCar] = useState("");
-  const [sheet, setSheet] = useState<null | "car" | "ai">(null);
+  const [sheet, setSheet] = useState<null | "car" | "ai" | "rm">(null);
 
   /* ── توست اپ (مطابق toast طراحی — ۱۸۰۰ms) ── */
   const [toast, setToast] = useState("");
@@ -71,6 +71,10 @@ export default function MobileApp() {
   const items = useCart((s) => s.items);
   const cartAdd = useCart((s) => s.add);
   const cartChg = useCart((s) => s.chg);
+  const removedItems = useCart((s) => s.removed);
+  const cartRestore = useCart((s) => s.restore);
+  const cartPurge = useCart((s) => s.purgeRemoved);
+  const cartClearRemoved = useCart((s) => s.clearRemoved);
   const wishIds = useWish((s) => s.ids);
   const wishToggle = useWish((s) => s.toggle);
   const webQ = useRoute((s) => s.q);
@@ -220,6 +224,19 @@ export default function MobileApp() {
     </button>
   );
 
+  /* آیکون قرمز «لیست کالای حذف‌شده» کنار آیکون سبد — شیت لیست را باز می‌کند (دستور ۲۷) */
+  const rmBtn = (extra?: string) => (
+    <button
+      type="button"
+      className={"mib2 mrmb" + (extra ? " " + extra : "")}
+      onClick={() => setSheet("rm")}
+      aria-label="لیست کالای حذف‌شده"
+    >
+      <TabRm />
+      {removedItems.length > 0 ? <b className="mcn mcn-rm">{F(removedItems.length)}</b> : null}
+    </button>
+  );
+
   const card = (p: Product) => {
     const wished = wishIds.includes(p.id);
     return (
@@ -287,6 +304,7 @@ export default function MobileApp() {
               <span>۰۹۱۲ ۰۰۰ ۰۰۰۰</span>
             </a>
             {cartBtn()}
+            {rmBtn()}
           </div>
         </div>
         <form className="msrch" onSubmit={onSearch}>
@@ -404,6 +422,7 @@ export default function MobileApp() {
         <b>{cat || "همه محصولات"}</b>
         <span style={{ marginInlineStart: "auto", color: "var(--mute)", fontSize: 13 }}>{F(list.length)} کالا</span>
         {cartBtn()}
+        {rmBtn()}
       </div>
       <div className="mchips">
         <button
@@ -433,6 +452,59 @@ export default function MobileApp() {
     </>
   );
 
+  /* ── فهرست کالاهای حذف‌شده از سبد — مشترک بین صفحه سبد و شیت آیکن قرمز (دستور ۲۷) ── */
+  const rmRows =
+    removedItems.length === 0 ? (
+      <small className="mrm-empty">چیزی حذف نشده است؛ کالایی که از سبد کم کنید اینجا می‌ماند.</small>
+    ) : (
+      removedItems.map((x) => {
+        const p = findProduct(x.id);
+        return (
+          <div className="mci" key={x.id} style={{ opacity: 0.88 }}>
+            <div className="mim" style={{ display: "grid", placeItems: "center", fontSize: 26 }}>
+              {p ? <PIcon p={p} s={30} /> : "🗑️"}
+            </div>
+            <div>
+              <b>{p ? p.n : "کالای حذف‌شده از فروشگاه"}</b>
+              {F(p?.p ?? 0)} تومان · تعداد: {F(x.n)}
+            </div>
+            <div className="mqt">
+              <button type="button" aria-label="بازگرداندن به سبد" title="بازگرداندن به سبد" onClick={() => { cartRestore(x.id); say("به سبد بازگشت ✓"); }}>
+                ↩
+              </button>
+              <button type="button" aria-label="حذف از لیست" title="حذف از لیست" onClick={() => cartPurge(x.id)}>
+                ✕
+              </button>
+            </div>
+          </div>
+        );
+      })
+    );
+
+  const rmClear =
+    removedItems.length > 0 ? (
+      <button
+        className="mbt mnv"
+        type="button"
+        style={{ margin: "4px 16px 12px", width: "calc(100% - 32px)" }}
+        onClick={() => {
+          cartClearRemoved();
+          say("لیست حذف‌شده‌ها پاک شد");
+        }}
+      >
+        پاک کردن کل لیست
+      </button>
+    ) : null;
+
+  /* بخش قرمز داخل صفحه سبد — آیکن + عنوان «لیست کالای حذف‌شده» (دستور ۲۷) */
+  const rmSection = (
+    <div className="mrmsec">
+      <div className="mrmh">🗑️ لیست کالای حذف‌شده</div>
+      {rmRows}
+      {rmClear}
+    </div>
+  );
+
   /* cart — با مبلغ ارسال واقعی تنظیمات فروشگاه */
   const ship = tot >= free ? 0 : shipPost;
   const cartView =
@@ -450,6 +522,7 @@ export default function MobileApp() {
             دیدن محصولات
           </a>
         </div>
+        {rmSection}
       </>
     ) : (
       <>
@@ -484,13 +557,17 @@ export default function MobileApp() {
                   +
                 </button>
                 <span>{F(x.n)}</span>
-                <button type="button" aria-label="کاهش" onClick={() => cartChg(x.id, -1)}>
+                <button type="button" aria-label="کاهش / حذف از سبد" onClick={() => {
+                  if (x.n <= 1) say("از سبد حذف شد — در لیست حذف‌شده‌ها ماند 🗑");
+                  cartChg(x.id, -1);
+                }}>
                   −
                 </button>
               </div>
             </div>
           );
         })}
+        {rmSection}
         <div className="msm">
           <div className="mrow">
             <span>جمع کالاها</span>
@@ -647,6 +724,13 @@ export default function MobileApp() {
             </button>
           </>
         )}
+        {sheet === "rm" && (
+          <>
+            <h3 className="mrmh">🗑️ لیست کالای حذف‌شده</h3>
+            {rmRows}
+            {rmClear}
+          </>
+        )}
         {sheet === "ai" && (
           <>
             <h3>خرید با هوش مصنوعی</h3>
@@ -686,6 +770,12 @@ export default function MobileApp() {
           سبد
           {cnt > 0 ? <b>{F(cnt)}</b> : null}
         </a>
+        {/* تپ قرمز «حذف‌شده‌ها» — شیت لیست حذف‌شده‌ها (دستور ۲۷) */}
+        <button type="button" className="rmtab" onClick={() => setSheet("rm")} aria-label="لیست کالای حذف‌شده">
+          <TabRm />
+          حذف‌شده
+          {removedItems.length > 0 ? <b className="mcn-rm2">{F(removedItems.length)}</b> : null}
+        </button>
         <a href="#app-me" className={view.k === "me" ? "on" : ""}>
           <TabMe />
           حساب
