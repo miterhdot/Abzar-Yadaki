@@ -262,6 +262,24 @@ export function CheckoutView() {
 export function DoneView() {
   const last = useRoute((s) => s.lastOrder);
   const status = useData((s) => s.orders.find((o) => o.code === last)?.status ?? "processing");
+
+  /* دستور ۲۹: با رفرش صفحهٔ #done، کد آخرین سفارش در حافظه نیست — پیام محترمانه به‌جای کد خالی */
+  if (!last)
+    return (
+      <div className="w" style={{ textAlign: "center", padding: "50px 0" }}>
+        <div style={{ fontSize: 60 }}>✅</div>
+        <h2 style={{ justifyContent: "center" }}>سفارش شما ثبت شد</h2>
+        <p style={{ color: "var(--mute)" }}>
+          کد پیگیری در پیامک تأیید سفارش ارسال شده است؛ از صفحهٔ «پیگیری سفارش» با کد و موبایل همان سفارش می‌توانید وضعیت را ببینید.
+        </p>
+        <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
+          <a className="btn" href="#track">📦 پیگیری سفارش</a>
+          <a className="btn ghost" href="#shop">فروشگاه</a>
+          <a className="btn ghost" href="#home">بازگشت به صفحه اول</a>
+        </div>
+      </div>
+    );
+
   return (
     <div className="w" style={{ textAlign: "center", padding: "50px 0" }}>
       <div style={{ fontSize: 60 }}>✅</div>
@@ -270,7 +288,7 @@ export function DoneView() {
         کد پیگیری: <b>{last}</b> · وضعیت فعلی: <span className="badge b-off">{STATUS_FA[status]}</span>
       </p>
       <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
-        <a className="btn" href="#track" onClick={() => useRoute.getState().go("track", { q: last })}>
+        <a className="btn" href="#track" data-keepq onClick={() => useRoute.getState().go("track", { q: last })}>
           📦 پیگیری سفارش
         </a>
         <a className="btn ghost" href="#home">

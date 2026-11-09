@@ -7,7 +7,7 @@
    کد اپ کاملاً از نسخه وب جدا است (قانون ۱)؛ نقطه اتصال واحد: site-app.tsx
    ═══════════════════════════════════════════════════════════════════ */
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent } from "react";
 import type { Product } from "@/data/store";
 import { C } from "@/data/store";
 import { F, pd } from "@/lib/format";
@@ -39,11 +39,26 @@ const go = (h: string) => {
 };
 
 export default function MobileApp() {
-  /* ── مسیر ── */
-  const [hash, setHash] = useState("");
+  /* مسیر — هم‌سو با روتر نسخهٔ وب (useSyncExternalStore، بدون setState داخل افکت — دستور ۲۹) */
+  const hash = useSyncExternalStore(
+    (cb) => {
+      window.addEventListener("hashchange", cb);
+      return () => window.removeEventListener("hashchange", cb);
+    },
+    () => window.location.hash,
+    () => ""
+  );
+  /* شمارش ناوبری درون‌اپ (دستور ۲۹): اگر کاربر مستقیم با لینک محصول وارد شده باشد،
+     دکمهٔ بازگشت به‌جای خروج از سایت، به دسته‌ها برمی‌گردد */
+  const navRef = useRef(0);
+  const goBack = () => {
+    if (navRef.current > 0) history.back();
+    else go("#app-cats");
+  };
   useEffect(() => {
-    const on = () => setHash(window.location.hash);
-    on();
+    const on = () => {
+      navRef.current += 1;
+    };
     window.addEventListener("hashchange", on);
     return () => window.removeEventListener("hashchange", on);
   }, []);
@@ -444,7 +459,8 @@ export default function MobileApp() {
 
   /* cats — اگر از جستجوی نسخه وب (#shop) روی موبایل بیاید، عبارت جستجو حفظ می‌شود */
   const effQ = !q && hash.replace(/^#/, "") === "shop" ? webQ : q;
-  const list = prods.filter((p) => (!cat || p.c === cat) && (!effQ || p.n.includes(effQ)));
+  /* دستور ۲۹: جستجو شامل نام و برند — هم‌سو با نسخهٔ وب */
+  const list = prods.filter((p) => (!cat || p.c === cat) && (!effQ || p.n.includes(effQ) || p.b.includes(effQ)));
   const catsView = (
     <>
       <div className="mhd2">
@@ -699,7 +715,7 @@ export default function MobileApp() {
     view.k === "prod" && p ? (
       <>
         <div className="mhd2">
-          <button className="mbk" type="button" aria-label="بازگشت" onClick={() => history.back()}>
+          <button className="mbk" type="button" aria-label="بازگشت" onClick={goBack}>
             ›
           </button>
           <b style={{ fontSize: 15 }}>{p.c}</b>

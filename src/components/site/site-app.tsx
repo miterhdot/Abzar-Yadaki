@@ -94,6 +94,9 @@ export default function SiteApp() {
     const onClick = (e: MouseEvent) => {
       const a = (e.target as HTMLElement).closest?.("a[href^='#']");
       if (!a) return;
+      /* استثنا (دستور ۲۹): لینک‌های دارای data-keepq — پیش‌پُر کردن کد پیگیری — از پاک‌شدن q معاف‌اند؛
+         وگرنه رویداد جهانی بعد از onClick خودِ لینک، q را خالی می‌کرد و فرم پیگیری خالی باز می‌شد */
+      if (a.closest("[data-keepq]")) return;
       useRoute.setState({ q: "" });
     };
     document.addEventListener("click", onClick);

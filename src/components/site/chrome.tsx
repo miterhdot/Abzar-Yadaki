@@ -18,7 +18,8 @@ export function Header() {
   const onSearch = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const q = (e.currentTarget.elements.namedItem("q") as HTMLInputElement).value.trim();
-    go("shop", { q });
+    /* دستور ۲۹: جستجو جستجوی کل فروشگاه است — از دستهٔ فعلی خارج می‌شود تا نتیجه به یک دسته محدود نشود */
+    go("shop", { q, cat: "" });
   };
 
   return (

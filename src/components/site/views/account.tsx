@@ -162,7 +162,7 @@ export function AccountView() {
                         <span style={{ maxWidth: 320, textAlign: "left" }}>{o.addr}</span>
                       </div>
                     )}
-                    <a className="btn ghost" style={{ marginTop: 8, display: "inline-block" }} href="#track" onClick={() => go("track", { q: o.code })}>
+                    <a className="btn ghost" style={{ marginTop: 8, display: "inline-block" }} href="#track" data-keepq onClick={() => go("track", { q: o.code })}>
                       📦 پیگیری سفارش
                     </a>
                   </div>

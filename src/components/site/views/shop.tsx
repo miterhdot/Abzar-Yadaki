@@ -12,7 +12,8 @@ export function ShopView() {
   const go = useRoute((s) => s.go);
   const prods = useData((s) => s.prods);
 
-  let list = prods.filter((p) => (!cat || p.c === cat) && (!q || p.n.includes(q)));
+  /* دستور ۲۹: جستجو شامل نام و برند (جای جستجو می‌گوید «نام قطعه، کد فنی یا خودرو») */
+  let list = prods.filter((p) => (!cat || p.c === cat) && (!q || p.n.includes(q) || p.b.includes(q)));
   if (sort === "a") list = [...list].sort((a, b) => a.p - b.p);
   if (sort === "d") list = [...list].sort((a, b) => b.p - a.p);
 
