@@ -65,6 +65,8 @@ h2{font-size:22px;margin:36px 0 14px;display:flex;justify-content:space-between;
 .rmsec{margin-top:12px;padding-top:12px;border-top:1px dashed var(--line)}
 .btn.ghost.on{border-color:#e5484d;color:#e5484d;background:#e5484d14}
 footer{background:var(--navy);color:#b9c9e0;margin-top:48px;padding:28px 0 20px;font-size:14px}footer .w{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:18px}footer b{color:#fff}
+/* دستور ۳۵: بلوک «درباره ابزاریدکی» — تمام‌عرض بالای فوتر، معرفی سئوپسند */
+footer .fab{grid-column:1/-1;max-width:980px}footer .fab p{margin:8px 0 0;line-height:1.9}footer .fab a{color:#ffb27a;text-decoration:none}footer .fab a:hover{text-decoration:underline}
 .sticky{display:none}
 @media(max-width:760px){.hero .w,.pd{grid-template-columns:1fr}.fit{grid-template-columns:1fr 1fr}.trust{grid-template-columns:1fr 1fr}.hd{flex-wrap:wrap}.search{order:3;flex-basis:100%}
 .sticky{display:flex;position:fixed;bottom:0;inset-inline:0;background:var(--card);border-top:1px solid var(--line);padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));gap:10px;z-index:15;align-items:center;justify-content:space-between}}
