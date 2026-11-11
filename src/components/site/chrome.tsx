@@ -104,6 +104,14 @@ export function Footer() {
             لنت ترمز و شمع را مطابق خودروی خود جست‌وجو کنید و با پشتیبانی فنی و{" "}
             <a href="#returns">رویهٔ بازگشت ۷ روزه</a> خیال‌راحت سفارش دهید.
           </p>
+          {/* دستور ۳۶: توضیحات انگلیسی برای ایندکس سئوی گوگل — LTR و کم‌رنگ‌تر */}
+          <p className="en" dir="ltr" lang="en">
+            <strong>Abzar Yadaki</strong> (abzaryadaki.com) is an Iranian{" "}
+            <a href="#shop">online auto parts and tools store</a>: buy genuine car spare parts,{" "}
+            <a href="#cats">hand tools and power tools</a> with authenticity guarantee, transparent pricing and
+            fast nationwide delivery across Iran — backed by technical support and a{" "}
+            <a href="#returns">7-day return policy</a>.
+          </p>
         </div>
         <div>
           <b>خدمات</b>

@@ -4,6 +4,21 @@
 
 ---
 
+## [دستور ۳۶ — توضیحات انگلیسی در بلوک «درباره ابزاریدکی» فوتر] — ۱۴۰۵/۰۸/۲۲
+
+**دستور مدیر:** توضحیات انگلیسی؟ (تکمیل دستور ۳۵)
+
+**کار انجام‌شده:**
+- **فوتر (`src/components/site/chrome.tsx`):** پاراگراف انگلیسی سئوپسند زیر متن فارسی در همان بلوک `div.fab` — `<p className="en" dir="ltr" lang="en">`:
+  - متن: «Abzar Yadaki (abzaryadaki.com) is an Iranian online auto parts and tools store: buy genuine car spare parts, hand tools and power tools with authenticity guarantee, transparent pricing and fast nationwide delivery across Iran — backed by technical support and a 7-day return policy.»
+  - کلیدواژه‌های هدف انگلیسی برای ایندکس گوگل + ۳ لینک داخلی با متن لنگر انگلیسی (`#shop`، `#cats`، `#returns`)
+- **استایل (`src/app/globals.css`):** قاعدهٔ `footer .fab p.en` — `direction:ltr`، چپ‌چین، ۱۳px، رنگ کم‌رنگ‌تر `#93a7c4` (سلسله‌مراتب بصری زیر متن فارسی) + `strong` روشن‌تر `#e6edf7`
+- lint سبز + build سبز
+
+**وضعیت:** ✅ کامل — فوتر اکنون دوزبانه است (معرفی فارسی + توضیحات انگلیسی سئو)
+
+---
+
 ## [دستور ۳۵ — اپلود README + بلوک «درباره ابزاریدکی» سئوپسند در فوتر وب‌سایت] — ۱۴۰۵/۰۸/۲۲
 
 **دستور مدیر:** باشه بساز و اپلود کن؛ همچنین در فوتر وب‌سایت هم درباره ابزاریدکی متن بنویس که هم معرفی باشد هم برای سئو خوب باشد.
