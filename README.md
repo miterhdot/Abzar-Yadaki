@@ -167,6 +167,19 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 
 ---
 
+## 🇬🇧 English — Abzar Yadaki
+
+**Abzar Yadaki** is a production-grade **Persian (Farsi) RTL e-commerce template for auto parts & tools stores** — this repository powers the live store [abzaryadaki.com](https://www.abzaryadaki.com) and doubles as a ready-made starter for building your own **Iranian online shop**.
+
+- 🛒 **Complete storefront**: product catalog, live Persian-normalized search, cart & persistent wishlist, SMS OTP checkout (Supabase Auth Phone), order tracking, AI shopping assistant
+- 🧰 **Full admin dashboard** (10 sections) + built-in mobile app view
+- 🧱 **Modern stack**: Next.js 16 (App Router) · TypeScript strict · Tailwind CSS 4 · Supabase (PostgreSQL + RLS) · Zustand · shadcn/ui · Vercel-ready
+- 🚀 **Launch your own store in minutes**: clone the repo, run 4 SQL migrations, set 2 environment variables, rebrand, deploy
+
+📘 **Full English documentation → [README.en.md](README.en.md)**
+
+---
+
 <div align="center">
 
 **[abzaryadaki.com](https://www.abzaryadaki.com)** — ابزار و لوازم یدکی خودرو
