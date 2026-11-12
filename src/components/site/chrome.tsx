@@ -94,29 +94,10 @@ export function Footer() {
   return (
     <footer>
       <div className="w">
-        {/* دستور ۳۵: بلوک «درباره ابزاریدکی» — متن معرفی سئوپسند با کلیدواژه‌های هدف + لینک‌های داخلی */}
-        <div className="fab">
-          <b>درباره ابزاریدکی</b>
-          <p>
-            <strong>ابزاریدکی</strong> (abzaryadaki.com) فروشگاه اینترنتی ابزار و لوازم یدکی خودرو است؛ مرجع{" "}
-            <a href="#shop">خرید اینترنتی قطعات یدکی خودرو</a>، <a href="#cats">ابزار دستی و ابزار برقی</a> با
-            تضمین اصالت کالا، قیمت شفاف و ارسال سریع به سراسر ایران. در ابزاریدکی قطعات مصرفی مانند فیلتر روغن،
-            لنت ترمز و شمع را مطابق خودروی خود جست‌وجو کنید و با پشتیبانی فنی و{" "}
-            <a href="#returns">رویهٔ بازگشت ۷ روزه</a> خیال‌راحت سفارش دهید.
-          </p>
-          {/* دستور ۳۶: توضیحات انگلیسی برای ایندکس سئوی گوگل — LTR و کم‌رنگ‌تر */}
-          <p className="en" dir="ltr" lang="en">
-            <strong>Abzar Yadaki</strong> (abzaryadaki.com) is an Iranian{" "}
-            <a href="#shop">online auto parts and tools store</a>: buy genuine car spare parts,{" "}
-            <a href="#cats">hand tools and power tools</a> with authenticity guarantee, transparent pricing and
-            fast nationwide delivery across Iran — backed by technical support and a{" "}
-            <a href="#returns">7-day return policy</a>.
-          </p>
-        </div>
         <div>
           <b>خدمات</b>
           <br />
-          گارانتی اصالت · ۷ روز بازگشت · پشتیبانی فنی
+          گارانتی اصالت · پشتیبانی فنی
         </div>
         <div>
           <b>حساب کاربری</b>
@@ -144,6 +125,23 @@ export function Footer() {
           <a href="#admin">پنل مدیریت</a>
           <br />
           <a href="#privacy">حریم خصوصی</a> · <a href="#cookies">سیاست کوکی</a> · <a href="#refund">شرایط بازگشت پول</a>
+        </div>
+        {/* دستور ۳۸: بلوک «درباره ابزاریدکی» (۳۵/۳۶) به زیر تمام لینک‌های فوتر منتقل شد + ارجاع «۷ روز بازگشت» طبق دستور مدیر حذف شد */}
+        <div className="fab">
+          <b>درباره ابزاریدکی</b>
+          <p>
+            <strong>ابزاریدکی</strong> (abzaryadaki.com) فروشگاه اینترنتی ابزار و لوازم یدکی خودرو است؛ مرجع{" "}
+            <a href="#shop">خرید اینترنتی قطعات یدکی خودرو</a>، <a href="#cats">ابزار دستی و ابزار برقی</a> با
+            تضمین اصالت کالا، قیمت شفاف و ارسال سریع به سراسر ایران. در ابزاریدکی قطعات مصرفی مانند فیلتر روغن،
+            لنت ترمز و شمع را مطابق خودروی خود جست‌وجو کنید و با پشتیبانی فنی خیال‌راحت سفارش دهید.
+          </p>
+          {/* توضیحات انگلیسی برای ایندکس سئوی گوگل — LTR و کم‌رنگ‌تر */}
+          <p className="en" dir="ltr" lang="en">
+            <strong>Abzar Yadaki</strong> (abzaryadaki.com) is an Iranian{" "}
+            <a href="#shop">online auto parts and tools store</a>: buy genuine car spare parts,{" "}
+            <a href="#cats">hand tools and power tools</a> with authenticity guarantee, transparent pricing and
+            fast nationwide delivery across Iran — backed by technical support.
+          </p>
         </div>
       </div>
     </footer>
