@@ -522,6 +522,37 @@ export async function dbDeleteMessage(id: number): Promise<{ ok: true } | { ok: 
   return { ok: true };
 }
 
+/* ── خبرنامه (دستور ۴۲/M2) — عضویت عمومی + فهرست ادمین ── */
+
+export type NewsletterRow = { id: number; contact: string; day: number };
+
+export async function dbNewsletterAdd(contact: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const c = db();
+  if (!c) return { ok: false, error: "db-off" };
+  const { error } = await c.from("newsletter").insert({ contact });
+  if (error) return { ok: false, error: errMsg(error) };
+  return { ok: true };
+}
+
+export async function dbAdminNewsletter(): Promise<{ ok: boolean; rows: NewsletterRow[]; error?: string }> {
+  const c = db();
+  if (!c) return { ok: false, rows: [] };
+  const { data, error } = await c
+    .from("newsletter")
+    .select("id, contact, created_at")
+    .order("created_at", { ascending: false })
+    .limit(1000);
+  if (error) return { ok: false, rows: [], error: errMsg(error) };
+  return {
+    ok: true,
+    rows: ((data ?? []) as { id: number; contact: string; created_at: string }[]).map((r) => ({
+      id: r.id,
+      contact: r.contact,
+      day: dayDiff(r.created_at),
+    })),
+  };
+}
+
 /* ── ۶-۷) بنرها — CRUD ادمین (سیاست banners_admin_all — ادمین غیرفعال‌ها را هم می‌بیند) ── */
 
 export async function dbAdminBanners(): Promise<{ ok: boolean; rows: Banner[]; error?: string }> {

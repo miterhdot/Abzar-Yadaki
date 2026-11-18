@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { C } from "@/data/store";
 import { F } from "@/lib/format";
 import { useAuth, useCart, useData, useRoute, useUI, useWish } from "@/lib/shop-state";
@@ -142,8 +143,73 @@ export function Footer() {
             <a href="#cats">hand tools and power tools</a> with authenticity guarantee, transparent pricing and
             fast nationwide delivery across Iran — backed by technical support.
           </p>
+          {/* خبرنامهٔ بومی — دستور ۴۲/M2: ثبت موبایل/ایمیل با محدودیت نرخ سمت سرور */}
+          <NewsletterForm />
         </div>
       </div>
     </footer>
+  );
+}
+
+/* خبرنامه — دستور ۴۲/M2: عضویت برای اطلاع از تخفیف‌ها؛ درج در جدول newsletter با RLS */
+function NewsletterForm() {
+  const [v, setV] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (busy || !v.trim()) return;
+    setBusy(true);
+    setMsg("");
+    try {
+      const r = await fetch("/api/newsletter", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ contact: v }),
+      });
+      const j = await r.json();
+      if (j.ok) {
+        setMsg(j.dup ? "شما قبلاً عضو شده‌اید ✓" : "عضویت شما ثبت شد ✓");
+        setV("");
+      } else {
+        setMsg(j.error || "خطا — بعداً تلاش کنید.");
+      }
+    } catch {
+      setMsg("ارتباط برقرار نشد — بعداً تلاش کنید.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form onSubmit={submit} style={{ marginTop: 14, maxWidth: 420 }}>
+      <b>📨 عضویت در خبرنامهٔ تخفیف‌ها</b>
+      <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+        <input
+          type="text"
+          dir="ltr"
+          placeholder="۰۹۱۲... یا ایمیل"
+          aria-label="موبایل یا ایمیل برای خبرنامهٔ تخفیف‌ها"
+          value={v}
+          onChange={(e) => setV(e.target.value)}
+          style={{
+            flex: 1,
+            minWidth: 180,
+            border: "1px solid var(--line)",
+            borderRadius: 10,
+            padding: "8px 12px",
+            background: "var(--bg)",
+            color: "var(--ink)",
+          }}
+        />
+        <button className="btn" type="submit" disabled={busy}>
+          {busy ? "..." : "عضویت"}
+        </button>
+      </div>
+      {msg && (
+        <small style={{ color: "var(--mute)", display: "block", marginTop: 6 }}>{msg}</small>
+      )}
+    </form>
   );
 }

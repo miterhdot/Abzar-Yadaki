@@ -19,11 +19,12 @@ import { F, dg, normFa } from "@/lib/format";
 import { useAdmin, useData, useUI } from "@/lib/shop-state";
 import {
   AdmCoupon, AdmOrderRow, dbAddBanner, dbAddCoupon, dbAdminBanners, dbAdminCoupons,
-  dbAdminCategories, dbAdminLive, dbAdminLogin, dbAdminMessages, dbAdminOrders, dbAdminProfiles,
-  dbAdminProducts, dbAdminReviews, dbAdminRestore, dbAdminSignOut, dbReady,
+  dbAdminCategories, dbAdminLive, dbAdminLogin, dbAdminMessages, dbAdminNewsletter, dbAdminOrders,
+  dbAdminProfiles, dbAdminProducts, dbAdminReviews, dbAdminRestore, dbAdminSignOut, dbReady,
   dbDeleteBanner, dbDeleteCoupon, dbDeleteMessage, dbDeleteProduct, dbDeleteReview,
   dbGetSettings, dbReadMessage, dbSaveProduct, dbSaveSettings, dbSetOrderStatus, dbSetReview,
   dbToggleBanner, dbToggleCoupon,
+  type NewsletterRow,
 } from "@/lib/supabase";
 import { LogoMark } from "../bits";
 
@@ -45,6 +46,16 @@ const TABS: [Tab, string, string][] = [
 ];
 
 const dayFa = (d: number) => (d === 0 ? "امروز" : d === 1 ? "دیروز" : `${F(d)} روز پیش`);
+
+/* خروجی CSV مشترکین خبرنامه — دستور ۴۲/M2 (BOM برای سازگاری فارسی در اکسل) */
+const exportNewsletterCsv = (rows: NewsletterRow[]): void => {
+  const csv = "\uFEFF" + "contact\n" + rows.map((r) => r.contact).join("\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+  a.download = "newsletter.csv";
+  a.click();
+  URL.revokeObjectURL(a.href);
+};
 
 /* مرز «امروز» به ساعت تهران (UTC+۳:۳۰) */
 const TEHRAN = 3.5 * 3600_000;
@@ -106,6 +117,7 @@ type AdmData = {
   coupons: AdmCoupon[];
   banners: Banner[];
   msgs: Msg[];
+  news: NewsletterRow[];
   profiles: { name: string; phone: string }[];
   settings: Settings | null;
   cats: [string, string][];
@@ -113,15 +125,16 @@ type AdmData = {
 
 const admEmpty: AdmData = {
   loaded: false, err: "", orders: [], prods: [], reviews: [],
-  coupons: [], banners: [], msgs: [], profiles: [], settings: null, cats: [],
+  coupons: [], banners: [], msgs: [], news: [], profiles: [], settings: null, cats: [],
 };
 
 const useAdm = create<AdmData>(() => ({ ...admEmpty }));
 
 const loadAdm = async (): Promise<void> => {
-  const [o, p, r, c, b, m, pr, st, ct] = await Promise.all([
+  const [o, p, r, c, b, m, pr, st, ct, nl] = await Promise.all([
     dbAdminOrders(), dbAdminProducts(), dbAdminReviews(), dbAdminCoupons(),
     dbAdminBanners(), dbAdminMessages(), dbAdminProfiles(), dbGetSettings(), dbAdminCategories(),
+    dbAdminNewsletter(),
   ]);
   const err = [o, p, r, c, b, m].some((x) => !x.ok) ? "خطا در بارگذاری بخشی از داده‌ها" : "";
   useAdm.setState({
@@ -132,6 +145,7 @@ const loadAdm = async (): Promise<void> => {
     coupons: c.ok ? c.rows : [],
     banners: b.ok ? b.rows : [],
     msgs: m.ok ? m.rows : [],
+    news: nl.ok ? nl.rows : [],
     profiles: pr.ok ? pr.rows : [],
     settings: st,
     cats: ct.ok ? ct.rows : [],
@@ -1264,6 +1278,51 @@ export function AdminApp() {
                 </div>
               ))}
             </div>
+            {/* مشترکین خبرنامه — دستور ۴۲/M2 (فقط با اتصال دیتابیس) */}
+            {real && (
+              <div className="panel" style={{ marginTop: 16, padding: 14 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  <b>📨 مشترکین خبرنامه ({F(adm.news.length)})</b>
+                  <button
+                    className="btn ghost"
+                    style={{ marginInlineStart: "auto", padding: "5px 14px", fontSize: 12 }}
+                    type="button"
+                    disabled={adm.news.length === 0}
+                    onClick={() => exportNewsletterCsv(adm.news)}
+                  >
+                    خروجی CSV
+                  </button>
+                </div>
+                {adm.news.length === 0 ? (
+                  <small style={{ color: "var(--mute)", display: "block", marginTop: 8 }}>
+                    هنوز مشتری ثبت نشده است.
+                  </small>
+                ) : (
+                  <div style={{ overflowX: "auto", marginTop: 8 }}>
+                    <table className="adm-table">
+                      <thead>
+                        <tr>
+                          <th>#</th>
+                          <th>موبایل / ایمیل</th>
+                          <th>عضویت</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {adm.news.map((r, i) => (
+                          <tr key={r.id}>
+                            <td>{F(i + 1)}</td>
+                            <td dir="ltr" style={{ textAlign: "right" }}>
+                              {r.contact}
+                            </td>
+                            <td>{dayFa(r.day)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
           </>
         )}
 
