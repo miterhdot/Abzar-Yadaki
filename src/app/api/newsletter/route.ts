@@ -1,8 +1,22 @@
-/* دستور ۴۲/فاز M2 — عضویت خبرنامه: محدودیت نرخ (الگوی A2) + اعتبارسنجی + درج در جدول newsletter */
+/* دستور ۴۲/فاز M2 — عضویت خبرنامه: محدودیت نرخ (الگوی A2) + اعتبارسنجی + درج در جدول newsletter
+   نکتهٔ معماری (اصلاح دیپلوی): src/lib/supabase.ts ماژول کلاینت است ("use client") — route سروری
+   نمی‌تواند توابع آن را صدا بزند؛ این route کلاینت خودش را مستقیم با کلید عمومی anon می‌سازد
+   (درج از مسیر سیاست RLS «newsletter_insert_public» — همان کلید عمومی مرورگر). */
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { normFa } from "@/lib/format";
 import { clientIp, rateLimit, tooMany } from "@/lib/rate-limit";
-import { dbNewsletterAdd } from "@/lib/supabase";
+
+const URL_ = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+let client: SupabaseClient | null = null;
+
+const db = (): SupabaseClient | null => {
+  if (!URL_ || !ANON) return null;
+  if (!client) client = createClient(URL_, ANON, { auth: { persistSession: false } });
+  return client;
+};
 
 const EMAIL = /^\S+@\S+\.\S+$/;
 
@@ -30,10 +44,13 @@ export async function POST(req: Request) {
     );
   }
 
-  const res = await dbNewsletterAdd(contact);
-  if (!res.ok) {
+  const c = db();
+  if (!c) return NextResponse.json({ ok: false, error: "db-off" }, { status: 503 });
+
+  const { error } = await c.from("newsletter").insert({ contact });
+  if (error) {
     /* عضویت تکراری = پیام موفق با نکته */
-    if (res.error.includes("duplicate")) return NextResponse.json({ ok: true, dup: true });
+    if (/duplicate/i.test(error.message)) return NextResponse.json({ ok: true, dup: true });
     return NextResponse.json({ ok: false, error: "ثبت عضویت انجام نشد — بعداً تلاش کنید." }, { status: 502 });
   }
   return NextResponse.json({ ok: true });

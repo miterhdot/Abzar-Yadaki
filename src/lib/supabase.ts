@@ -566,17 +566,10 @@ export async function dbDeletePost(id: number): Promise<{ ok: true } | { ok: fal
   return { ok: true };
 }
 
-/* ── خبرنامه (دستور ۴۲/M2) — عضویت عمومی + فهرست ادمین ── */
+/* ── خبرنامه (دستور ۴۲/M2) — عضویت از مسیر /api/newsletter سمت سرور انجام می‌شود
+   (این ماژول "use client" است و route سروری نمی‌تواند توابعش را صدا بزند)؛ فهرست ادمین اینجا: ── */
 
 export type NewsletterRow = { id: number; contact: string; day: number };
-
-export async function dbNewsletterAdd(contact: string): Promise<{ ok: true } | { ok: false; error: string }> {
-  const c = db();
-  if (!c) return { ok: false, error: "db-off" };
-  const { error } = await c.from("newsletter").insert({ contact });
-  if (error) return { ok: false, error: errMsg(error) };
-  return { ok: true };
-}
 
 export async function dbAdminNewsletter(): Promise<{ ok: boolean; rows: NewsletterRow[]; error?: string }> {
   const c = db();
