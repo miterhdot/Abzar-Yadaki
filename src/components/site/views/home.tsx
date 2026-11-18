@@ -34,12 +34,20 @@ export function HomeView() {
                   <option key={x}>{x}</option>
                 ))}
               </select>
-              <select aria-label="سال ساخت" defaultValue="">
-                <option value="" disabled>سال</option>
+              {/* دستور ۳۹: ورود آزاد سال + لیست کامل ۱۴۰۵ تا ۱۳۷۰ (datalist) */}
+              <input
+                list="fit-years"
+                aria-label="سال ساخت"
+                placeholder="سال"
+                inputMode="numeric"
+                maxLength={4}
+                defaultValue=""
+              />
+              <datalist id="fit-years">
                 {FIT.year.map((x) => (
-                  <option key={x}>{x}</option>
+                  <option key={x} value={x} />
                 ))}
-              </select>
+              </datalist>
               <button className="btn" type="button" onClick={() => go("shop", { cat: "", q: "" })}>
                 پیدا کن
               </button>

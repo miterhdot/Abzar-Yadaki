@@ -63,10 +63,13 @@ export const REVIEWS: [string, string][] = [
   ["حسین م.", "پشتیبانی خوب جواب داد."],
 ];
 
+/* دستور ۳۹: بازهٔ سال ساخت از ۱۳۷۰ تا ۱۴۰۵ (جدید به قدیم) — ورود آزاد سال توسط کاربر با input+datalist در جعبهٔ نارنجی */
+const faNum = (n: number) => String(n).replace(/\d/g, (d) => "۰۱۲۳۴۵۶۷۸۹"[Number(d)]);
+
 export const FIT = {
   brand: ["پژو", "سمند", "پراید", "دنا"],
   model: ["۲۰۶", "۴۰۵", "تیبا"],
-  year: ["۱۴۰۴", "۱۴۰۳", "۱۴۰۲"],
+  year: Array.from({ length: 1405 - 1370 + 1 }, (_, i) => faNum(1405 - i)),
 };
 
 /* ── Admin demo data (separate from the site design) ── */
