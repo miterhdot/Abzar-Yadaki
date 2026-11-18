@@ -22,18 +22,20 @@ const PAGES: Page[] = [
   "privacy", "cookies", "refund", "admin",
 ];
 
-type GoOpts = { pid?: number; cat?: string; q?: string };
+type GoOpts = { pid?: number; cat?: string; q?: string; fit?: string };
 
 type RouteState = {
   page: Page;
   pid: number;
   cat: string;
   q: string;
+  fit: string;
   sort: string;
   lastOrder: string;
   go: (page: Page, opts?: GoOpts) => void;
   setFromHash: () => void;
   setSort: (s: string) => void;
+  setFit: (f: string) => void;
 };
 
 export const hashOf = (page: Page, pid = 0): string =>
@@ -44,6 +46,7 @@ export const useRoute = create<RouteState>()((set) => ({
   pid: 0,
   cat: "",
   q: "",
+  fit: "",
   sort: "",
   lastOrder: "",
   go: (page, opts) => {
@@ -54,6 +57,7 @@ export const useRoute = create<RouteState>()((set) => ({
       pid,
       cat: opts?.cat !== undefined ? opts.cat : st.cat,
       q: opts?.q !== undefined ? opts.q : "",
+      fit: opts?.fit !== undefined ? opts.fit : st.fit,
     }));
     if (window.location.hash !== h) {
       window.location.hash = h; // triggers hashchange → setFromHash + scroll top
@@ -72,6 +76,8 @@ export const useRoute = create<RouteState>()((set) => ({
     window.scrollTo(0, 0);
   },
   setSort: (s) => set({ sort: s }),
+  /* دستور ۴۰: تنظیم/حذف فیلتر خودرو (چیپ فروشگاه) */
+  setFit: (f) => set({ fit: f }),
 }));
 
 /* ─────────── Cart (persisted) ─────────── */

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { C, FIT, REVIEWS, TRUST, WHY } from "@/data/store";
 import { useData, useRoute, useUI } from "@/lib/shop-state";
 import { Pn, ProductCard } from "../bits";
@@ -9,6 +10,12 @@ export function HomeView() {
   const prods = useData((s) => s.prods);
   const banners = useData((s) => s.banners);
   const discounted = prods.filter((p) => p.o);
+
+  /* دستور ۴۰: اتصال جعبهٔ نارنجی به جست‌وجو — برند/مدل/سال انتخابی به فروشگاه می‌رود */
+  const [fb, setFb] = useState("");
+  const [fm, setFm] = useState("");
+  const [fy, setFy] = useState("");
+  const find = () => go("shop", { cat: "", q: "", fit: `${fb}|${fm}|${fy}` });
 
   return (
     <>
@@ -22,13 +29,13 @@ export function HomeView() {
             </h1>
             <p>لوازم یدکی اصل و ابزار حرفه‌ای با گارانتی اصالت، قیمت شفاف و ارسال سریع.</p>
             <div className="fit">
-              <select aria-label="برند خودرو" defaultValue="">
+              <select aria-label="برند خودرو" value={fb} onChange={(e) => setFb(e.target.value)}>
                 <option value="" disabled>برند</option>
                 {FIT.brand.map((x) => (
                   <option key={x}>{x}</option>
                 ))}
               </select>
-              <select aria-label="مدل خودرو" defaultValue="">
+              <select aria-label="مدل خودرو" value={fm} onChange={(e) => setFm(e.target.value)}>
                 <option value="" disabled>مدل</option>
                 {FIT.model.map((x) => (
                   <option key={x}>{x}</option>
@@ -41,14 +48,15 @@ export function HomeView() {
                 placeholder="سال"
                 inputMode="numeric"
                 maxLength={4}
-                defaultValue=""
+                value={fy}
+                onChange={(e) => setFy(e.target.value)}
               />
               <datalist id="fit-years">
                 {FIT.year.map((x) => (
                   <option key={x} value={x} />
                 ))}
               </datalist>
-              <button className="btn" type="button" onClick={() => go("shop", { cat: "", q: "" })}>
+              <button className="btn" type="button" onClick={find}>
                 پیدا کن
               </button>
             </div>

@@ -37,6 +37,8 @@ nav{background:var(--navy2);overflow-x:auto;white-space:nowrap}nav .w{display:fl
 .hero p{color:#c3d3e9;margin:0 0 18px}
 .fit{background:#fff;color:var(--ink);border-radius:14px;padding:12px;display:grid;grid-template-columns:repeat(3,1fr) auto;gap:8px}
 .fit select,.fit input{padding:10px;border:1px solid var(--line);border-radius:10px;font:inherit;background:#fff;color:#0f1b2d;min-width:0}
+.fitbar{display:flex;align-items:center;gap:10px;margin:0 0 14px;background:#fff;border:1px solid var(--line);border-inline-start:3px solid var(--or);border-radius:10px;padding:10px 14px;font-weight:600}
+.fitbar button{background:none;border:0;color:var(--mute);font-size:18px;cursor:pointer;padding:4px 8px;line-height:1}
 .btn{background:var(--or);color:#fff;border:0;border-radius:10px;padding:10px 20px;font-weight:600;transition:.2s}.btn:hover{background:var(--or2);transform:translateY(-1px)}
 .btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
 .trust{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:-28px}
