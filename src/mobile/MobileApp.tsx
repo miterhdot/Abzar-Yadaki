@@ -445,9 +445,6 @@ export default function MobileApp() {
         <div>
           <span>🚚</span>ارسال سریع
         </div>
-        <div>
-          <span>↩️</span>۷ روز بازگشت
-        </div>
       </div>
 
       <div className="msec">
@@ -750,7 +747,6 @@ export default function MobileApp() {
         <div className="mbx">
           <div>🚚 ارسال همان‌روز در تهران</div>
           <div>🛡️ ضمانت اصالت کالا</div>
-          <div>↩️ ۷ روز مهلت بازگشت</div>
           {car ? (
             <div className="mok">✔ سازگار با {car} (طبق انتخاب شما)</div>
           ) : (

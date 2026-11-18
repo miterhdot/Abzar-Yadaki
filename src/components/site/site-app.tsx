@@ -19,7 +19,7 @@ import { AuthView } from "./views/auth";
 import { AccountView } from "./views/account";
 import { TrackView } from "./views/track";
 import { WishlistView } from "./views/wishlist";
-import { FaqView, TermsView, PrivacyView, CookiesView, RefundView, ReturnsView } from "./views/static";
+import { FaqView, TermsView, PrivacyView, CookiesView } from "./views/static";
 import { NotFoundView } from "./views/notfound";
 import { AdminApp } from "./admin/admin-app";
 
@@ -51,7 +51,7 @@ const useHash = (): string =>
 
 /* مسیرهای وب که روی موبایل هم به‌صورت وب می‌مانند (خارج از گرافیک اپ) */
 const WEB_KEEP =
-  /^#(admin|checkout|done|offers|about|contact|auth|account|track|wishlist|faq|terms|returns|privacy|cookies|refund|notfound)$/;
+  /^#(admin|checkout|done|offers|about|contact|auth|account|track|wishlist|faq|terms|privacy|cookies|notfound)$/;
 
 export default function SiteApp() {
   const page = useRoute((s) => s.page);
@@ -144,10 +144,8 @@ export default function SiteApp() {
         {page === "wishlist" && <WishlistView />}
         {page === "faq" && <FaqView />}
         {page === "terms" && <TermsView />}
-        {page === "returns" && <ReturnsView />}
         {page === "privacy" && <PrivacyView />}
         {page === "cookies" && <CookiesView />}
-        {page === "refund" && <RefundView />}
         {page === "notfound" && <NotFoundView />}
       </main>
       <Footer />

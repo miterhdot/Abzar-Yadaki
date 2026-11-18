@@ -13,13 +13,13 @@ export type Page =
   | "home" | "shop" | "product" | "cats" | "offers"
   | "about" | "contact" | "checkout" | "done"
   | "auth" | "account" | "track" | "wishlist"
-  | "faq" | "terms" | "returns" | "privacy" | "cookies" | "refund"
+  | "faq" | "terms" | "privacy" | "cookies"
   | "notfound" | "admin";
 
 const PAGES: Page[] = [
   "shop", "cats", "offers", "about", "contact", "checkout", "done",
-  "auth", "account", "track", "wishlist", "faq", "terms", "returns",
-  "privacy", "cookies", "refund", "admin",
+  "auth", "account", "track", "wishlist", "faq", "terms",
+  "privacy", "cookies", "admin",
 ];
 
 type GoOpts = { pid?: number; cat?: string; q?: string; fit?: string };

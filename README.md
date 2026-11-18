@@ -19,7 +19,7 @@
 
 **🌐 نمونهٔ زنده: [abzaryadaki.com](https://www.abzaryadaki.com)** — این پروژه یک فروشگاه واقعی و در حال کار است که می‌توانید به‌عنوان **قالب آماده برای ساخت فروشگاه اینترنتی جدید** از آن استفاده کنید.
 
-*Persian (Farsi) RTL Auto Parts & Tools E-Commerce — Next.js 16 · TypeScript · Supabase · Vercel*
+*فروشگاه ابزار یدکی | Persian Auto Parts & Tools Online Store — abzaryadaki.com*
 
 </div>
 
@@ -52,6 +52,7 @@
 
 - 🏠 **صفحهٔ اصلی**: بنرهای مدیریت‌پذیر، دسته‌بندی‌ها، پیشنهاد شگفت‌انگیز، پرفروش‌ها
 - 🛍️ **فروشگاه و جست‌وجو**: جست‌وجوی زندهٔ **نرمال‌سازی‌شدهٔ فارسی** — «206» لاتین، «۲۰۶» فارسی، «پژو» با «ي/ك» عربی و «برف پاک کن» با فاصلهٔ معمولی همگی درست کار می‌کنند؛ فیلتر دسته/برند و مرتب‌سازی قیمت
+- 🚗 **انتخاب خودرو → قطعات سازگار**: جعبهٔ برند/مدل/سال ساخت (ورود آزاد سال، بازهٔ ۱۳۷۰ تا ۱۴۰۵) متصل به جست‌وجو — فقط قطعه‌های سازگار با خودروی شما نمایش داده می‌شود
 - 📦 **جزئیات محصول**: مشخصات، امتیاز، نظرات، گالری، افزودن به سبد/علاقه‌مندی/لیست انتظار
 - 🛒 **سبد خرید ماندگار**: بعد از بستن مرورگر می‌ماند (Zustand persist) + کشوی سبد + نوار خرید موبایل
 - ⏳ **لیست انتظار دسته‌بندی‌شده**: «حذف‌شده از سبد» + «در حال بررسی» — قابل بازیابی بعد از رفرش
@@ -62,7 +63,7 @@
 - 🔎 **پیگیری سفارش** با کد سفارش + شمارهٔ موبایل
 - 🤖 **دستیار خرید هوشمند** (AI): پیشنهاد قطعه بر اساس خودروی مشتری — سمت سرور و با محدودیت نرخ (Rate Limit)
 - 🛡️ **امنیت**: محدودیت نرخ روی APIهای عمومی، RLS کامل دیتابیس، قیمت‌گذاری و کوپن فقط سمت سرور
-- 🌙 حالت تاریب · 📄 سوالات متداول، قوانین، رویهٔ بازگرداندن کالا، حریم خصوصی · صفحهٔ ۴۰۴ اختصاصی
+- 🌙 حالت تاریب · 📄 سوالات متداول، قوانین، حریم خصوصی · صفحهٔ ۴۰۴ اختصاصی
 
 ## 🛠️ پنل مدیریت (`/#admin`)
 
@@ -158,7 +159,8 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 
 - ✅ نسخهٔ وب‌سایت: همهٔ صفحات مشتری + پنل مدیریت کامل + اپ موبایل درون‌سایت
 - ✅ امنیت و کیفیت: جست‌وجوی فارسی نرمال‌شده، محدودیت نرخ، وابستگی‌های به‌روز (صفر آسیب‌پذیری بحرانی)
-- 🔜 درگاه پرداخت بانکی، فیلترهای پیشرفته و جست‌وجوی قطعه بر اساس خودرو (به `docs/PROPOSALS.md` مراجعه کنید)
+- ✅ جست‌وجوی قطعه بر اساس خودرو: انتخاب برند/مدل/سال ساخت → فقط قطعه‌های سازگار
+- 🔜 درگاه پرداخت بانکی و فیلترهای پیشرفته (به `docs/PROPOSALS.md` مراجعه کنید)
 
 ## 🎨 اعتبار طراحی
 
@@ -171,7 +173,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 
 **Abzar Yadaki** is a production-grade **Persian (Farsi) RTL e-commerce template for auto parts & tools stores** — this repository powers the live store [abzaryadaki.com](https://www.abzaryadaki.com) and doubles as a ready-made starter for building your own **Iranian online shop**.
 
-- 🛒 **Complete storefront**: product catalog, live Persian-normalized search, cart & persistent wishlist, SMS OTP checkout (Supabase Auth Phone), order tracking, AI shopping assistant
+- 🛒 **Complete storefront**: product catalog, live Persian-normalized search, **car fitment selector (brand/model/year 1370–1405) wired into search**, cart & persistent wishlist, SMS OTP checkout (Supabase Auth Phone), order tracking, AI shopping assistant
 - 🧰 **Full admin dashboard** (10 sections) + built-in mobile app view
 - 🧱 **Modern stack**: Next.js 16 (App Router) · TypeScript strict · Tailwind CSS 4 · Supabase (PostgreSQL + RLS) · Zustand · shadcn/ui · Vercel-ready
 - 🚀 **Launch your own store in minutes**: clone the repo, run 4 SQL migrations, set 2 environment variables, rebrand, deploy

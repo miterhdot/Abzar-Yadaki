@@ -90,10 +90,6 @@ export function ContactView() {
           <p>از انتخاب برند، مدل و سال در صفحه اول استفاده کنید.</p>
         </details>
         <details>
-          <summary>مهلت بازگشت کالا چقدر است؟</summary>
-          <p>۷ روز، با بسته‌بندی سالم.</p>
-        </details>
-        <details>
           <summary>ارسال رایگان دارید؟</summary>
           <p>بله، برای سفارش‌های بالای {F(FREE)} تومان.</p>
         </details>

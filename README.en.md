@@ -63,7 +63,7 @@
 - 👤 **Account area**: orders, addresses, order details
 - 🔎 **Guest order tracking** with order code + phone number
 - 🤖 **AI shopping assistant**: recommends parts based on the customer's car — server-side API route with rate limiting
-- 🌙 Dark mode · 📄 FAQ, terms, returns policy, privacy · custom 404
+- 🌙 Dark mode · 📄 FAQ, terms, privacy · custom 404
 
 ## 🛠️ Admin Panel (`/#admin`)
 
