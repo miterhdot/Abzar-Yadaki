@@ -122,7 +122,7 @@ export function Footer() {
           <br />
           <a href="#about">درباره ما</a> · <a href="#contact">تماس</a> · <a href="#offers">تخفیف‌ها</a>
           <br />
-          <a href="#faq">سوالات متداول</a> · <a href="#terms">قوانین</a> ·{" "}
+          <a href="#faq">سوالات متداول</a> · <a href="#terms">قوانین</a> · <a href="#blog">مقالات</a> ·{" "}
           <a href="#admin">پنل مدیریت</a>
           <br />
           <a href="#privacy">حریم خصوصی</a> · <a href="#cookies">سیاست کوکی</a>

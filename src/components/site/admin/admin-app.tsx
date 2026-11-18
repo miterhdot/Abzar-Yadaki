@@ -13,7 +13,7 @@ import { Fragment, useEffect, useState, type FormEvent } from "react";
 import { create } from "zustand";
 import {
   C, CUSTOMERS, MONTH_SALES, OrderStatus, Product, STATUS_FA, WEEK_SALES,
-  type Banner, type Coupon, type Msg, type Order, type Review, type Settings,
+  type Banner, type Coupon, type Msg, type Order, type Post, type Review, type Settings,
 } from "@/data/store";
 import { F, dg, normFa } from "@/lib/format";
 import { useAdmin, useData, useUI } from "@/lib/shop-state";
@@ -21,16 +21,16 @@ import {
   AdmCoupon, AdmOrderRow, dbAddBanner, dbAddCoupon, dbAdminBanners, dbAdminCoupons,
   dbAdminCategories, dbAdminLive, dbAdminLogin, dbAdminMessages, dbAdminNewsletter, dbAdminOrders,
   dbAdminProfiles, dbAdminProducts, dbAdminReviews, dbAdminRestore, dbAdminSignOut, dbReady,
-  dbDeleteBanner, dbDeleteCoupon, dbDeleteMessage, dbDeleteProduct, dbDeleteReview,
-  dbGetSettings, dbReadMessage, dbSaveProduct, dbSaveSettings, dbSetOrderStatus, dbSetReview,
-  dbToggleBanner, dbToggleCoupon,
+  dbDeleteBanner, dbDeleteCoupon, dbDeleteMessage, dbDeletePost, dbDeleteProduct, dbDeleteReview,
+  dbFetchPosts, dbGetSettings, dbReadMessage, dbSavePost, dbSaveProduct, dbSaveSettings,
+  dbSetOrderStatus, dbSetReview, dbToggleBanner, dbToggleCoupon,
   type NewsletterRow,
 } from "@/lib/supabase";
 import { LogoMark } from "../bits";
 
 type Tab =
   | "dash" | "products" | "orders" | "customers" | "reviews"
-  | "coupons" | "banners" | "messages" | "reports" | "settings";
+  | "coupons" | "banners" | "posts" | "messages" | "reports" | "settings";
 
 const TABS: [Tab, string, string][] = [
   ["dash", "📊", "داشبورد"],
@@ -40,6 +40,7 @@ const TABS: [Tab, string, string][] = [
   ["reviews", "⭐", "نظرات"],
   ["coupons", "🏷️", "کد تخفیف"],
   ["banners", "🖼️", "بنرها"],
+  ["posts", "📝", "مقالات"],
   ["messages", "✉️", "پیام‌ها"],
   ["reports", "📈", "گزارش‌ها"],
   ["settings", "⚙️", "تنظیمات"],
@@ -118,6 +119,7 @@ type AdmData = {
   banners: Banner[];
   msgs: Msg[];
   news: NewsletterRow[];
+  posts: Post[];
   profiles: { name: string; phone: string }[];
   settings: Settings | null;
   cats: [string, string][];
@@ -125,16 +127,16 @@ type AdmData = {
 
 const admEmpty: AdmData = {
   loaded: false, err: "", orders: [], prods: [], reviews: [],
-  coupons: [], banners: [], msgs: [], news: [], profiles: [], settings: null, cats: [],
+  coupons: [], banners: [], msgs: [], news: [], posts: [], profiles: [], settings: null, cats: [],
 };
 
 const useAdm = create<AdmData>(() => ({ ...admEmpty }));
 
 const loadAdm = async (): Promise<void> => {
-  const [o, p, r, c, b, m, pr, st, ct, nl] = await Promise.all([
+  const [o, p, r, c, b, m, pr, st, ct, nl, pl] = await Promise.all([
     dbAdminOrders(), dbAdminProducts(), dbAdminReviews(), dbAdminCoupons(),
     dbAdminBanners(), dbAdminMessages(), dbAdminProfiles(), dbGetSettings(), dbAdminCategories(),
-    dbAdminNewsletter(),
+    dbAdminNewsletter(), dbFetchPosts(),
   ]);
   const err = [o, p, r, c, b, m].some((x) => !x.ok) ? "خطا در بارگذاری بخشی از داده‌ها" : "";
   useAdm.setState({
@@ -146,6 +148,7 @@ const loadAdm = async (): Promise<void> => {
     banners: b.ok ? b.rows : [],
     msgs: m.ok ? m.rows : [],
     news: nl.ok ? nl.rows : [],
+    posts: pl ?? [],
     profiles: pr.ok ? pr.rows : [],
     settings: st,
     cats: ct.ok ? ct.rows : [],
@@ -366,6 +369,7 @@ export function AdminApp() {
   const dCoupons = useData((s) => s.coupons);
   const dBanners = useData((s) => s.banners);
   const dMsgs = useData((s) => s.msgs);
+  const dPosts = useData((s) => s.posts);
   const dSettings = useData((s) => s.settings);
 
   /* بازیابی نشست واقعی ادمین پس از رفرش (فقط حالت واقعی) —
@@ -531,6 +535,48 @@ export function AdminApp() {
       return;
     }
     useUI.getState().say("کد حذف شد");
+    loadAdm();
+  };
+
+  /* مقالات مجله — دستور ۴۲/M3 */
+  const actAddPost = async (p: { e: string; t: string; x: string; b: string; c: string }): Promise<boolean> => {
+    if (!real) {
+      useData.getState().addPost({ id: Date.now(), e: p.e, t: p.t, x: p.x, b: p.b, c: p.c, day: 0 });
+      return true;
+    }
+    const r = await dbSavePost(null, p);
+    if (!r.ok) {
+      useUI.getState().say("افزودن ناموفق: " + faDbErr(r.error));
+      return false;
+    }
+    loadAdm();
+    return true;
+  };
+
+  const actUpdPost = async (id: number, p: { e: string; t: string; x: string; b: string; c: string }): Promise<boolean> => {
+    if (!real) {
+      useData.getState().updPost(id, p);
+      return true;
+    }
+    const r = await dbSavePost(id, p);
+    if (!r.ok) {
+      useUI.getState().say("ثبت ناموفق: " + faDbErr(r.error));
+      return false;
+    }
+    loadAdm();
+    return true;
+  };
+
+  const actDelPost = async (p: Post): Promise<void> => {
+    if (!real) {
+      useData.getState().delPost(p.id);
+      return;
+    }
+    const r = await dbDeletePost(p.id);
+    if (!r.ok) {
+      useUI.getState().say("حذف ناموفق: " + faDbErr(r.error));
+      return;
+    }
     loadAdm();
   };
 
@@ -1240,6 +1286,16 @@ export function AdminApp() {
           </>
         )}
 
+        {/* ── مقالات ── */}
+        {tab === "posts" && (
+          <PostsTab
+            posts={real ? adm.posts : dPosts}
+            onAdd={actAddPost}
+            onUpd={actUpdPost}
+            onDel={actDelPost}
+          />
+        )}
+
         {/* ── پیام‌ها ── */}
         {tab === "messages" && (
           <>
@@ -1668,6 +1724,166 @@ function SettingsTab({
             ? "ذخیره روی دیتابیس — در بارگذاری بعدی سایت برای همهٔ بازدیدکنندگان اعمال می‌شود (نوار اعلان، سبد خرید، تسویه‌حساب)."
             : "تغییرات بلافاصله در سایت اعمال می‌شود: نوار اعلان، سبد خرید، صفحه محصول و تسویه‌حساب."}
         </small>
+      </div>
+    </>
+  );
+}
+
+/* ═══════════ مقالات مجله — دستور ۴۲/M3 ═══════════ */
+
+const POST_INP: React.CSSProperties = {
+  border: "1px solid var(--line)",
+  borderRadius: 10,
+  padding: "8px 12px",
+  background: "var(--bg)",
+  color: "var(--ink)",
+  fontSize: 13,
+};
+
+function PostsTab({
+  posts,
+  onAdd,
+  onUpd,
+  onDel,
+}: {
+  posts: Post[];
+  onAdd: (p: { e: string; t: string; x: string; b: string; c: string }) => Promise<boolean>;
+  onUpd: (id: number, p: { e: string; t: string; x: string; b: string; c: string }) => Promise<boolean>;
+  onDel: (p: Post) => Promise<void> | void;
+}) {
+  const [edit, setEdit] = useState<Post | null>(null);
+  const [e, setE] = useState("📝");
+  const [t, setT] = useState("");
+  const [x, setX] = useState("");
+  const [b, setB] = useState("");
+  const [c, setC] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const reset = () => {
+    setEdit(null);
+    setE("📝");
+    setT("");
+    setX("");
+    setB("");
+    setC("");
+  };
+
+  const startEdit = (p: Post) => {
+    setEdit(p);
+    setE(p.e);
+    setT(p.t);
+    setX(p.x);
+    setB(p.b);
+    setC(p.c);
+    window.scrollTo(0, 0);
+  };
+
+  const save = async () => {
+    if (!t.trim() || !b.trim()) {
+      useUI.getState().say("عنوان و متن مقاله لازم است");
+      return;
+    }
+    setBusy(true);
+    const payload = { e: e.trim() || "📝", t: t.trim(), x: x.trim(), b: b.trim(), c };
+    const ok = edit ? await onUpd(edit.id, payload) : await onAdd(payload);
+    setBusy(false);
+    if (ok) {
+      useUI.getState().say(edit ? "مقاله ویرایش شد ✓" : "مقاله افزوده شد ✓");
+      reset();
+    }
+  };
+
+  return (
+    <>
+      <div className="adm-top">
+        <h1>مقالات مجلهٔ ابزاریدکی</h1>
+      </div>
+      <div className="panel" style={{ padding: 14 }}>
+        <b>{edit ? `ویرایش مقاله: ${edit.t}` : "افزودن مقالهٔ جدید"}</b>
+        <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <input
+              value={e}
+              onChange={(ev) => setE(ev.target.value)}
+              placeholder="📝"
+              aria-label="ایموجی مقاله"
+              style={{ ...POST_INP, width: 64, textAlign: "center" }}
+            />
+            <input
+              value={t}
+              onChange={(ev) => setT(ev.target.value)}
+              placeholder="عنوان مقاله"
+              aria-label="عنوان مقاله"
+              style={{ ...POST_INP, flex: 1, minWidth: 220 }}
+            />
+            <select value={c} onChange={(ev) => setC(ev.target.value)} aria-label="دستهٔ مرتبط" style={POST_INP}>
+              <option value="">بدون دستهٔ مرتبط</option>
+              {C.map(([, cn]) => (
+                <option key={cn} value={cn}>
+                  {cn}
+                </option>
+              ))}
+            </select>
+          </div>
+          <input
+            value={x}
+            onChange={(ev) => setX(ev.target.value)}
+            placeholder="خلاصهٔ کوتاه — در فهرست مقالات نمایش داده می‌شود"
+            aria-label="خلاصهٔ مقاله"
+            style={POST_INP}
+          />
+          <textarea
+            value={b}
+            onChange={(ev) => setB(ev.target.value)}
+            rows={8}
+            placeholder="متن مقاله — پاراگراف‌ها را با دو بار Enter جدا کنید"
+            aria-label="متن مقاله"
+            style={POST_INP}
+          />
+          <div style={{ display: "flex", gap: 8 }}>
+            <button className="btn" type="button" disabled={busy} onClick={save}>
+              {busy ? "..." : edit ? "ثبت ویرایش" : "افزودن مقاله"}
+            </button>
+            {edit && (
+              <button className="btn ghost" type="button" onClick={reset}>
+                انصراف
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+      <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
+        {posts.length === 0 && <div className="panel">مقاله‌ای ثبت نشده است.</div>}
+        {posts.map((p) => (
+          <div className="panel" key={p.id} style={{ padding: 14 }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "flex-start", flexWrap: "wrap" }}>
+              <span style={{ fontSize: 24 }}>{p.e}</span>
+              <div style={{ flex: 1, minWidth: 200 }}>
+                <b>{p.t}</b>
+                <p style={{ margin: "4px 0 6px", color: "var(--mute)" }}>{p.x}</p>
+                {p.c && <span className="badge b-off">دستهٔ {p.c}</span>}
+              </div>
+              <button
+                className="btn ghost"
+                style={{ padding: "4px 12px", fontSize: 12 }}
+                type="button"
+                onClick={() => startEdit(p)}
+              >
+                ویرایش
+              </button>
+              <button
+                className="btn ghost"
+                style={{ padding: "4px 12px", fontSize: 12, color: "#dc2626", borderColor: "#dc262655" }}
+                type="button"
+                onClick={() => {
+                  if (window.confirm(`مقالهٔ «${p.t}» حذف شود؟`)) onDel(p);
+                }}
+              >
+                حذف
+              </button>
+            </div>
+          </div>
+        ))}
       </div>
     </>
   );

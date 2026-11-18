@@ -8,7 +8,7 @@
  */
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import type { Banner, Coupon, Msg, Order, OrderStatus, Product, Review, Settings } from "@/data/store";
+import type { Banner, Coupon, Msg, Order, OrderStatus, Post, Product, Review, Settings } from "@/data/store";
 
 const URL_ = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -518,6 +518,50 @@ export async function dbDeleteMessage(id: number): Promise<{ ok: true } | { ok: 
   const c = db();
   if (!c) return { ok: false, error: "db-off" };
   const { error } = await c.from("contact_messages").delete().eq("id", id);
+  if (error) return { ok: false, error: errMsg(error) };
+  return { ok: true };
+}
+
+/* ── مجلهٔ ابزاریدکی (دستور ۴۲/M3) — خواندن عمومی + CRUD ادمین ── */
+
+export async function dbFetchPosts(): Promise<Post[] | null> {
+  const c = db();
+  if (!c) return null;
+  const { data, error } = await c
+    .from("posts")
+    .select("id, emoji, title, excerpt, body, cat, created_at")
+    .order("created_at", { ascending: false })
+    .limit(200);
+  if (error) return null;
+  return ((data ?? []) as { id: number; emoji: string; title: string; excerpt: string; body: string; cat: string; created_at: string }[]).map(
+    (r) => ({
+      id: r.id,
+      e: r.emoji,
+      t: r.title,
+      x: r.excerpt,
+      b: r.body,
+      c: r.cat,
+      day: dayDiff(r.created_at),
+    })
+  );
+}
+
+export async function dbSavePost(
+  id: number | null,
+  p: { e: string; t: string; x: string; b: string; c: string }
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const c = db();
+  if (!c) return { ok: false, error: "db-off" };
+  const row = { emoji: p.e, title: p.t, excerpt: p.x, body: p.b, cat: p.c };
+  const { error } = id ? await c.from("posts").update(row).eq("id", id) : await c.from("posts").insert(row);
+  if (error) return { ok: false, error: errMsg(error) };
+  return { ok: true };
+}
+
+export async function dbDeletePost(id: number): Promise<{ ok: true } | { ok: false; error: string }> {
+  const c = db();
+  if (!c) return { ok: false, error: "db-off" };
+  const { error } = await c.from("posts").delete().eq("id", id);
   if (error) return { ok: false, error: errMsg(error) };
   return { ok: true };
 }

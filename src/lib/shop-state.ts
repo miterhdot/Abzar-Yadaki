@@ -4,7 +4,7 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import {
   ADDRESSES, Address, BANNERS, Banner, COUPONS, Coupon, MSGS, Msg, Order, OrderStatus,
-  P, Product, REVIEWS_QUEUE, Review, SETTINGS, Settings, ORDERS,
+  P, POSTS, Product, REVIEWS_QUEUE, Review, SETTINGS, Settings, ORDERS,
 } from "@/data/store";
 
 /* ─────────── Route (hash-based, same hashes as design) ─────────── */
@@ -14,13 +14,13 @@ export type Page =
   | "about" | "contact" | "checkout" | "done"
   | "auth" | "account" | "track" | "wishlist"
   | "faq" | "terms" | "privacy" | "cookies"
-  | "compare"
+  | "compare" | "blog" | "post"
   | "notfound" | "admin";
 
 const PAGES: Page[] = [
   "shop", "cats", "offers", "about", "contact", "checkout", "done",
   "auth", "account", "track", "wishlist", "faq", "terms",
-  "privacy", "cookies", "compare", "admin",
+  "privacy", "cookies", "compare", "blog", "admin",
 ];
 
 type GoOpts = { pid?: number; cat?: string; q?: string; fit?: string };
@@ -40,7 +40,7 @@ type RouteState = {
 };
 
 export const hashOf = (page: Page, pid = 0): string =>
-  page === "home" ? "#home" : page === "product" ? `#p-${pid}` : `#${page}`;
+  page === "home" ? "#home" : page === "product" ? `#p-${pid}` : page === "post" ? `#post-${pid}` : `#${page}`;
 
 export const useRoute = create<RouteState>()((set) => ({
   page: "home",
@@ -71,6 +71,7 @@ export const useRoute = create<RouteState>()((set) => ({
     if (h === "home" || h === "") page = "home";
     else if (h === "shop") page = "shop";
     else if (h.startsWith("p-")) { page = "product"; pid = Number(h.slice(2)) || 0; }
+    else if (h.startsWith("post-")) { page = "post"; pid = Number(h.slice(5)) || 0; }
     else if (PAGES.includes(h as Page)) page = h as Page;
     else page = "notfound";
     set({ page, pid });
@@ -179,6 +180,7 @@ type DataState = {
   reviews: Review[];
   msgs: Msg[];
   banners: Banner[];
+  posts: Post[];
   addresses: Address[];
   users: { name: string; phone: string }[];
   settings: Settings;
@@ -205,6 +207,10 @@ type DataState = {
   toggleBanner: (id: number) => void;
   addBanner: (b: Banner) => void;
   delBanner: (id: number) => void;
+  /* posts (دستور ۴۲/M3) */
+  addPost: (p: Post) => void;
+  updPost: (id: number, p: Partial<Post>) => void;
+  delPost: (id: number) => void;
   /* addresses */
   addAddress: (a: Address) => void;
   delAddress: (id: number) => void;
@@ -222,6 +228,7 @@ export const useData = create<DataState>()(
       reviews: REVIEWS_QUEUE,
       msgs: MSGS,
       banners: BANNERS,
+      posts: POSTS,
       addresses: ADDRESSES,
       users: [
         { name: "علی رضایی", phone: "۰۹۱۲۳۴۵۶۷۸۹" },
@@ -256,6 +263,11 @@ export const useData = create<DataState>()(
         set((st) => ({ banners: st.banners.map((b) => (b.id === id ? { ...b, active: !b.active } : b)) })),
       addBanner: (b) => set((st) => ({ banners: [...st.banners, b] })),
       delBanner: (id) => set((st) => ({ banners: st.banners.filter((b) => b.id !== id) })),
+
+      /* مقالات مجله (دستور ۴۲/M3) */
+      addPost: (p) => set((st) => ({ posts: [p, ...st.posts] })),
+      updPost: (id, p) => set((st) => ({ posts: st.posts.map((x) => (x.id === id ? { ...x, ...p } : x)) })),
+      delPost: (id) => set((st) => ({ posts: st.posts.filter((x) => x.id !== id) })),
 
       addAddress: (a) => set((st) => ({ addresses: [...st.addresses, a] })),
       delAddress: (id) => set((st) => ({ addresses: st.addresses.filter((a) => a.id !== id) })),

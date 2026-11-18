@@ -2,7 +2,7 @@
 
 import { useEffect, useSyncExternalStore } from "react";
 import { rehydrateAll, useCart, useData, useRoute } from "@/lib/shop-state";
-import { dbFetchCatalog } from "@/lib/supabase";
+import { dbFetchCatalog, dbFetchPosts } from "@/lib/supabase";
 import MobileApp from "@/mobile/MobileApp";
 import { AnnBar, Footer, Header } from "./chrome";
 import { CartDrawer, WaitingDrawer } from "./cart-drawer";
@@ -21,6 +21,7 @@ import { AccountView } from "./views/account";
 import { TrackView } from "./views/track";
 import { WishlistView } from "./views/wishlist";
 import { CompareView } from "./views/compare";
+import { BlogView, PostView } from "./views/blog";
 import { FaqView, TermsView, PrivacyView, CookiesView } from "./views/static";
 import { NotFoundView } from "./views/notfound";
 import { AdminApp } from "./admin/admin-app";
@@ -53,7 +54,7 @@ const useHash = (): string =>
 
 /* مسیرهای وب که روی موبایل هم به‌صورت وب می‌مانند (خارج از گرافیک اپ) */
 const WEB_KEEP =
-  /^#(admin|checkout|done|offers|about|contact|auth|account|track|wishlist|compare|faq|terms|privacy|cookies|notfound)$/;
+  /^#(admin|checkout|done|offers|about|contact|auth|account|track|wishlist|compare|blog|faq|terms|privacy|cookies|notfound)$/;
 
 export default function SiteApp() {
   const page = useRoute((s) => s.page);
@@ -80,6 +81,14 @@ export default function SiteApp() {
         ...(cat.settings ? { settings: cat.settings } : {}),
         reviews: cat.reviews,
       });
+    })();
+  }, []);
+
+  /* مقالات مجله از دیتابیس (دستور ۴۲/M3) — fail-soft: خالی یا بدون اتصال → seed می‌ماند */
+  useEffect(() => {
+    (async () => {
+      const posts = await dbFetchPosts();
+      if (posts && posts.length) useData.setState({ posts });
     })();
   }, []);
 
@@ -145,6 +154,8 @@ export default function SiteApp() {
         {page === "track" && <TrackView />}
         {page === "wishlist" && <WishlistView />}
         {page === "compare" && <CompareView />}
+        {page === "blog" && <BlogView />}
+        {page === "post" && <PostView />}
         {page === "faq" && <FaqView />}
         {page === "terms" && <TermsView />}
         {page === "privacy" && <PrivacyView />}
