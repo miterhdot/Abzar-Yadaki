@@ -14,12 +14,13 @@ export type Page =
   | "about" | "contact" | "checkout" | "done"
   | "auth" | "account" | "track" | "wishlist"
   | "faq" | "terms" | "privacy" | "cookies"
+  | "compare"
   | "notfound" | "admin";
 
 const PAGES: Page[] = [
   "shop", "cats", "offers", "about", "contact", "checkout", "done",
   "auth", "account", "track", "wishlist", "faq", "terms",
-  "privacy", "cookies", "admin",
+  "privacy", "cookies", "compare", "admin",
 ];
 
 type GoOpts = { pid?: number; cat?: string; q?: string; fit?: string };
@@ -321,6 +322,38 @@ export const useWish = create<WishState>()(
   )
 );
 
+/* ─────────── Compare (persisted) — دستور ۴۲ (M1): مقایسهٔ حداکثر ۴ قطعه ─────────── */
+
+type CompareState = {
+  ids: number[];
+  toggle: (id: number) => boolean; // true = اضافه شد؛ false = حذف شد یا سوا کامل بود
+  remove: (id: number) => void;
+  clear: () => void;
+};
+
+export const useCompare = create<CompareState>()(
+  persist(
+    (set) => ({
+      ids: [],
+      toggle: (id) => {
+        let now = false;
+        set((st) => {
+          if (st.ids.includes(id)) {
+            return { ids: st.ids.filter((x) => x !== id) };
+          }
+          if (st.ids.length >= 4) return {};
+          now = true;
+          return { ids: [...st.ids, id] };
+        });
+        return now;
+      },
+      remove: (id) => set((st) => ({ ids: st.ids.filter((x) => x !== id) })),
+      clear: () => set({ ids: [] }),
+    }),
+    { name: "abzar-compare", skipHydration: true }
+  )
+);
+
 /* ─────────── Admin session (per tab) ─────────── */
 
 type AdminState = { logged: boolean; login: () => void; logout: () => void };
@@ -338,7 +371,7 @@ export const useAdmin = create<AdminState>()(
 
 /* rehydrate every persisted store after mount (avoids SSR mismatch) */
 export const rehydrateAll = () => {
-  [useCart, useData, useAuth, useWish, useAdmin].forEach((s) => s.persist.rehydrate());
+  [useCart, useData, useAuth, useWish, useCompare, useAdmin].forEach((s) => s.persist.rehydrate());
 };
 
 /* ─────────── UI (drawer / sheet / toast) ─────────── */

@@ -6,6 +6,7 @@ import { dbFetchCatalog } from "@/lib/supabase";
 import MobileApp from "@/mobile/MobileApp";
 import { AnnBar, Footer, Header } from "./chrome";
 import { CartDrawer, WaitingDrawer } from "./cart-drawer";
+import { CompareBar } from "./bits";
 import { MobileBar, Toast } from "./mobile-bar";
 import { HomeView } from "./views/home";
 import { ShopView } from "./views/shop";
@@ -19,6 +20,7 @@ import { AuthView } from "./views/auth";
 import { AccountView } from "./views/account";
 import { TrackView } from "./views/track";
 import { WishlistView } from "./views/wishlist";
+import { CompareView } from "./views/compare";
 import { FaqView, TermsView, PrivacyView, CookiesView } from "./views/static";
 import { NotFoundView } from "./views/notfound";
 import { AdminApp } from "./admin/admin-app";
@@ -51,7 +53,7 @@ const useHash = (): string =>
 
 /* مسیرهای وب که روی موبایل هم به‌صورت وب می‌مانند (خارج از گرافیک اپ) */
 const WEB_KEEP =
-  /^#(admin|checkout|done|offers|about|contact|auth|account|track|wishlist|faq|terms|privacy|cookies|notfound)$/;
+  /^#(admin|checkout|done|offers|about|contact|auth|account|track|wishlist|compare|faq|terms|privacy|cookies|notfound)$/;
 
 export default function SiteApp() {
   const page = useRoute((s) => s.page);
@@ -142,6 +144,7 @@ export default function SiteApp() {
         {page === "account" && <AccountView />}
         {page === "track" && <TrackView />}
         {page === "wishlist" && <WishlistView />}
+        {page === "compare" && <CompareView />}
         {page === "faq" && <FaqView />}
         {page === "terms" && <TermsView />}
         {page === "privacy" && <PrivacyView />}
@@ -151,6 +154,7 @@ export default function SiteApp() {
       <Footer />
       <CartDrawer />
       <WaitingDrawer />
+      <CompareBar />
       <MobileBar />
       <Toast />
     </>

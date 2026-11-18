@@ -184,3 +184,12 @@ body[data-pg=home] .grid>.pc,body[data-pg=prod] .grid>.pc{flex:0 0 64%;scroll-sn
 .tl b{display:block;font-size:14px}
 .tl small{color:var(--mute)}
 @media(max-width:760px){.mod>.panel{width:100%}}
+/* دستور ۴۲ (M1): مقایسه محصولات — نوار شناور + جدول */
+.cmpbar{position:fixed;bottom:18px;left:18px;z-index:40;display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:8px 10px 8px 14px;box-shadow:0 12px 30px #0b1f3a18;font-weight:600}
+.cmpbar .btn{padding:7px 14px}
+@media(max-width:767px){.cmpbar{bottom:64px;left:12px;right:12px;justify-content:space-between}}
+.cmp{width:100%;border-collapse:collapse;font-size:13.5px;min-width:560px}
+.cmp th,.cmp td{border-bottom:1px solid var(--line);padding:10px 12px;text-align:center;vertical-align:middle}
+.cmp th:first-child,.cmp td:first-child{text-align:right;color:var(--mute);font-weight:600;white-space:nowrap}
+.cmp th a{font-weight:700}
+.cmp .best{display:inline-block;margin-right:6px;color:#0a8f4c;font-weight:700;font-size:12px;white-space:nowrap}

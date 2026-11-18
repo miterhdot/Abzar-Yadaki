@@ -4,7 +4,7 @@ import { Fragment, useEffect, useState, type FormEvent } from "react";
 import { Product } from "@/data/store";
 import { F } from "@/lib/format";
 import { useAuth, useData, useRV, useRoute, useUI } from "@/lib/shop-state";
-import { FavBtn, Pn, ProductCard, useAddToCart, useWaiting } from "../bits";
+import { CompareBtn, FavBtn, Pn, ProductCard, useAddToCart, useWaiting } from "../bits";
 import { Crumb } from "../bits-helper";
 import { ShopView } from "./shop";
 
@@ -84,6 +84,8 @@ export function ProductView({ p }: { p: Product }) {
               <small style={{ color: "var(--mute)", display: "block", marginTop: 6 }}>
                 کالاهایی که هنوز درباره‌شان مطمئن نیستید، در «لیست انتظار» نگه داشته می‌شوند.
               </small>
+              {/* مقایسه با قطعه‌های دیگر — دستور ۴۲ (M1) */}
+              <CompareBtn id={p.id} block />
             </div>
             <div className="box">
               ✔ ضمانت اصالت کالا

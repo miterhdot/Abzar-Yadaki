@@ -2,7 +2,7 @@
 
 import { Product } from "@/data/store";
 import { F } from "@/lib/format";
-import { useCart, useUI, useWish } from "@/lib/shop-state";
+import { useCart, useCompare, useUI, useWish } from "@/lib/shop-state";
 
 /** The exact hexagon logo mark from the design */
 export function LogoMark({ size = 48 }: { size?: number }) {
@@ -91,6 +91,60 @@ export function FavBtn({ id }: { id: number }) {
   );
 }
 
+/** دکمهٔ مقایسه — دستور ۴۲ (M1): حداکثر ۴ قطعه؛ icon=کارت محصول، block=صفحهٔ محصول */
+export function CompareBtn({ id, icon, block }: { id: number; icon?: boolean; block?: boolean }) {
+  const ids = useCompare((s) => s.ids);
+  const toggle = useCompare((s) => s.toggle);
+  const on = ids.includes(id);
+  const label = on ? "حذف از مقایسه" : "افزودن به مقایسه";
+  return (
+    <button
+      type="button"
+      className={"btn ghost" + (on ? " on" : "")}
+      style={block ? { width: "100%", padding: 11, marginTop: 8 } : { padding: "6px 10px" }}
+      aria-label={label}
+      aria-pressed={on}
+      title={label}
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!on && ids.length >= 4) {
+          useUI.getState().say("حداکثر ۴ قطعه قابل مقایسه است ⚖️");
+          return;
+        }
+        const now = toggle(id);
+        useUI.getState().say(now ? "به مقایسه اضافه شد ⚖️" : "از مقایسه حذف شد");
+      }}
+    >
+      {icon ? (on ? "✓" : "⚖️") : on ? "✓ در مقایسه است" : "⚖ مقایسه"}
+    </button>
+  );
+}
+
+/** نوار شناور مقایسه — دستور ۴۲ (M1): نمایان وقتی حداقل یک قطعه انتخاب شده */
+export function CompareBar() {
+  const n = useCompare((s) => s.ids.length);
+  if (n === 0) return null;
+  return (
+    <div className="cmpbar">
+      <span>⚖ {F(n)} قطعه برای مقایسه</span>
+      <a className="btn" href="#compare">
+        مقایسه
+      </a>
+      <button
+        type="button"
+        aria-label="پاک کردن فهرست مقایسه"
+        onClick={() => {
+          useCompare.getState().clear();
+          useUI.getState().say("فهرست مقایسه پاک شد");
+        }}
+      >
+        ✕
+      </button>
+    </div>
+  );
+}
+
 /** Product card — 1:1 from design's card() */
 export function ProductCard({ p }: { p: Product }) {
   const onAdd = useAddToCart();
@@ -128,6 +182,7 @@ export function ProductCard({ p }: { p: Product }) {
             >
               {inWait ? "✓" : "⏳"}
             </button>
+            <CompareBtn id={p.id} icon />
             <button className="btn" type="button" onClick={() => onAdd(p.id)}>
               افزودن
             </button>
