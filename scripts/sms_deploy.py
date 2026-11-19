@@ -2,6 +2,7 @@
 # دستور ۴۳ — دیپلوی Edge Function «send-sms» روی پروژهٔ ساپابیس با Management API
 # کلید/توکن‌ها فقط از secrets/ خوانده می‌شوند و مقادیر محرمانه هرگز چاپ نمی‌شوند.
 import json
+import os
 import sys
 import urllib.error
 import urllib.request
@@ -9,7 +10,10 @@ import uuid
 
 REF = "wdbixiercvkshmamobro"
 SRC = "supabase/functions/send-sms/index.ts"
-tok = open("/home/z/my-project/Abzar-Yadaki/secrets/supabase_access_token.txt").read().strip()
+_TOK_PATH = "/home/z/my-project/secrets/supabase_access_token.txt"
+if not os.path.exists(_TOK_PATH):
+    _TOK_PATH = "/home/z/my-project/Abzar-Yadaki/secrets/supabase_access_token.txt"
+tok = open(_TOK_PATH).read().strip()
 
 src = open(SRC, "rb").read()
 boundary = "----abzar" + uuid.uuid4().hex

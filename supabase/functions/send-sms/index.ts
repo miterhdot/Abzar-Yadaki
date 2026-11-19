@@ -94,9 +94,18 @@ function sendVerify(mobile: string, templateId: number, params: { name: string; 
   return smsIr("POST", "/send/verify", { mobile, templateId, parameters: params });
 }
 
-/** ارسال از خط اختصاصی خودمان (Bulk تک‌شماره‌ای) */
+/** ارسال از خط اختصاصی خودمان (Bulk تک‌شماره‌ای) — مستندات: فرمت موبایل با صفرِ ابتدایی (09…/009…) */
 function sendBulk(text: string, mobile: string) {
-  return smsIr("POST", "/send/bulk", { lineNumber: Number(LINE), messageText: text, mobiles: [mobile] });
+  return smsIr("POST", "/send/bulk", { lineNumber: Number(LINE), messageText: text, mobiles: ["0" + mobile] });
+}
+
+/** پاک‌سازی متن برای درج در پیامک — حذف نویسه‌های کنترلی/سطر جدید (ضد تزریق محتوا) و محدودسازی طول */
+function clean(s: string, max: number): string {
+  return s
+    .replace(/[\u0000-\u001f\u007f\u200b-\u200f\u202a-\u202e]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, max);
 }
 
 /** فقط نقش admin — اعتبارسنجی توکن توسط خود GoTrue + نقش از profiles (با service_role) */
@@ -149,6 +158,13 @@ const ORDER_STATUS_FA: Record<string, string> = {
  * هدرهای webhook-id / webhook-timestamp / webhook-signature — HMAC-SHA256 روی "id.ts.body"
  * با کلید = رمزگشاییِ base64ِ بخشِ whsec_ (فرمت پیکربندی: "v1,whsec_<base64>").
  */
+// پانوشت ضد پخش مجدد: شناسه‌های هوک دیده‌شده (حافظهٔ هر ایزوله؛ لایهٔ دفاعی در کنار پنجرهٔ زمانی ۵ دقیقه)
+const SEEN = new Map<string, number>();
+setInterval(() => {
+  const cutoff = Date.now() - 600_000;
+  for (const [k, t] of SEEN) if (t < cutoff) SEEN.delete(k);
+}, 300_000);
+
 async function verifyHookSig(headers: Headers, rawBody: string): Promise<boolean> {
   const id = headers.get("webhook-id");
   const ts = headers.get("webhook-timestamp");
@@ -157,24 +173,35 @@ async function verifyHookSig(headers: Headers, rawBody: string): Promise<boolean
   // شناسه‌ها به‌صورت لیست ویرگولی "v1,whsec_..." — آخرین نسخه استفاده می‌شود
   const entry = HOOK_SECRET.split(",").filter((s) => s.startsWith("whsec_")).pop();
   if (!entry) return false;
-  const b64 = entry.slice("whsec_".length);
-  const key = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
-  // تمردهوای زمانی — بیش از ۵ دقیقه اختلاف رد می‌شود
-  const now = Math.floor(Date.now() / 1000);
-  if (Math.abs(now - Number(ts)) > 300) return false;
+  // ورودی‌های خراب (base64 نامعتبر) نباید تابع را ۵۰۰ کنند — تست نفوذ دستور ۴۴
+  let key: Uint8Array;
+  let now = Math.floor(Date.now() / 1000);
+  try {
+    key = Uint8Array.from(atob(entry.slice("whsec_".length)), (c) => c.charCodeAt(0));
+    if (!/^\d+$/.test(ts)) return false;
+    if (Math.abs(now - Number(ts)) > 300) return false; // تمردهوای زمانی — بیش از ۵ دقیقه رد می‌شود
+  } catch {
+    return false;
+  }
   const signed = new TextEncoder().encode(`${id}.${ts}.${rawBody}`);
   const keyI = await crypto.subtle.importKey("raw", key, { name: "HMAC", hash: "SHA-256" }, false, ["verify"]);
   for (const v of sigs.split(" ")) {
     const [ver, sigB64] = v.split(",");
     if (ver !== "v1") continue;
-    const sig = Uint8Array.from(atob(sigB64), (c) => c.charCodeAt(0));
+    let sig: Uint8Array;
+    try {
+      sig = Uint8Array.from(atob(sigB64), (c) => c.charCodeAt(0));
+    } catch {
+      continue;
+    }
     if (await crypto.subtle.verify("HMAC", keyI, sig, signed)) return true;
   }
   return false;
 }
 
 Deno.serve(async (req: Request): Promise<Response> => {
-  if (req.method === "OPTIONS") return new Response("ok", { status: 204, headers: CORS });
+  // ۲۰۴ باید بدون بدنه باشد وگرنه Runtime خطای ۵۰۰ می‌دهد (تست نفوذ دستور ۴۴)
+  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
   if (req.method !== "POST") return json({ error: "فقط POST" }, 405);
 
   // ── ① هوک send_sms — امضای Standard Webhooks از سمت GoTrue ──
@@ -185,17 +212,26 @@ Deno.serve(async (req: Request): Promise<Response> => {
     if (!(await verifyHookSig(req.headers, rawBody))) {
       return hookResp({ http_code: 401, message: "هوک پیامک: امضای Standard Webhooks نامعتبر" });
     }
+    // ضد پخش مجدد (Replay) — شناسهٔ هوک در پنجرهٔ ۱۰ دقیقه فقط یک‌بار پذیرفته می‌شود
+    const wid = req.headers.get("webhook-id") ?? "";
+    if (SEEN.has(wid)) {
+      return hookResp({ http_code: 409, message: "هوک پیامک: درخواست تکراری (replay)" });
+    }
+    SEEN.set(wid, Date.now());
+
+    let parsedHook: { phone?: string; otp?: string; type?: string; sms?: { phone?: string; otp?: string; type?: string } };
+    try {
+      parsedHook = JSON.parse(rawBody || "{}");
+    } catch {
+      return hookResp({ http_code: 400, message: "بدنهٔ هوک JSON نامعتبر" });
+    }
     // بدنهٔ هوک GoTrue: {metadata, user, sms: {otp, phone, type}} — با پشتیبانی از فرمت تخت قدیمی
-    const b = JSON.parse(rawBody || "{}") as {
-      phone?: string; otp?: string; type?: string;
-      sms?: { phone?: string; otp?: string; type?: string };
-    };
-    const sms = b.sms ?? b;
+    const sms = parsedHook.sms ?? parsedHook;
     const m = normMobile(sms.phone ?? "");
     if (!m || !sms.otp) return hookResp({ http_code: 400, message: "پارامترهای هوک پیامک نامعتبر" });
     if (!KEY) return hookResp({ http_code: 503, message: "کلید API سرویس پیامک تنظیم نشده است" });
     if (!OTP_TPL) return hookResp({ http_code: 503, message: "قالب کد تأیید تنظیم نشده است" });
-    const r = await sendVerify(m.e10, OTP_TPL, [{ name: OTP_PARAM, value: String(b.otp).slice(0, 25) }]);
+    const r = await sendVerify(m.e10, OTP_TPL, [{ name: OTP_PARAM, value: String(sms.otp).slice(0, 25) }]);
     if (!r.ok) {
       const fa = STATUS_FA[r.status] ?? r.message ?? "خطای نامعلوم";
       return hookResp({ http_code: 502, message: `ارسال کد ناموفق (${r.status}): ${fa}` });
@@ -207,14 +243,30 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const sub = await adminSub(authz);
   if (!sub) return json({ error: "فقط ادمین واردشده مجاز است" }, 401);
 
-  const b = JSON.parse(rawBody || "{}") as {
-    action?: string; mobile?: string; text?: string; kind?: string; code?: string;
-  };
+  let b: { action?: string; mobile?: string; text?: string; kind?: string; code?: string };
+  try {
+    b = JSON.parse(rawBody || "{}");
+  } catch {
+    return json({ error: "بدنهٔ JSON نامعتبر" }, 400);
+  }
 
   if (b.action === "status") {
+    // مقادیر فعلی پیکربندی اعلان از sms_config (فقط نقش ادمین همین‌جا می‌بیند — ستون عمومی نیست)
+    let cfg = { admin_mobile: "", notify_new_order: false, notify_status: false };
+    try {
+      const res = await fetch(`${SB_URL}/rest/v1/sms_config?id=eq.true&select=admin_mobile,notify_new_order,notify_status`, {
+        headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` },
+        signal: AbortSignal.timeout(10_000),
+      });
+      const rows = (await res.json()) as typeof cfg[];
+      if (rows[0]) cfg = rows[0];
+    } catch { /* مقدارهای پیش‌فرض خالی برمی‌گردند */ }
     return json({
       configured: Boolean(KEY), otpTemplate: Boolean(OTP_TPL), line: Boolean(LINE),
       statusTemplate: Boolean(STATUS_TPL), hookReady: Boolean(HOOK_SECRET),
+      adminMobile: cfg.admin_mobile ?? "",
+      notifyNewOrder: Boolean(cfg.notify_new_order),
+      notifyStatus: Boolean(cfg.notify_status),
     });
   }
 
@@ -241,16 +293,16 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (b.action === "notify") {
     if (!SB_URL || !SB_KEY) return json({ ok: false, error: "service_role در دسترس نیست" });
     if (b.kind !== "new-order" && b.kind !== "status") return json({ ok: false, error: "نوع اعلان نامعتبر" });
-    // toggle اول — صرفه‌جویی در استعلام سفارش
+    // toggle اول — صرفه‌جویی در استعلام سفارش (پیکربندی اعلان اکنون در sms_config است — دستور ۴۴)
     try {
-      const setRes = await fetch(`${SB_URL}/rest/v1/settings?id=eq.true&select=sms_admin_mobile,sms_notify_new_order,sms_notify_status`, {
+      const setRes = await fetch(`${SB_URL}/rest/v1/sms_config?id=eq.true&select=admin_mobile,notify_new_order,notify_status`, {
         headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` },
         signal: AbortSignal.timeout(10_000),
       });
-      const st = (await setRes.json() as { sms_admin_mobile: string; sms_notify_new_order: boolean; sms_notify_status: boolean }[])[0];
+      const st = (await setRes.json() as { admin_mobile: string; notify_new_order: boolean; notify_status: boolean }[])[0];
       if (!st) return json({ ok: false, error: "تنظیمات یافت نشد" });
-      if (b.kind === "new-order" && !st.sms_notify_new_order) return json({ ok: false, error: "اطلاع‌رسانی سفارش جدید خاموش است" });
-      if (b.kind === "status" && !st.sms_notify_status) return json({ ok: false, error: "اطلاع‌رسانی تغییر وضعیت خاموش است" });
+      if (b.kind === "new-order" && !st.notify_new_order) return json({ ok: false, error: "اطلاع‌رسانی سفارش جدید خاموش است" });
+      if (b.kind === "status" && !st.notify_status) return json({ ok: false, error: "اطلاع‌رسانی تغییر وضعیت خاموش است" });
 
       const sel = "code, name, phone, items_count, total, status";
       const ordRes = await fetch(`${SB_URL}/rest/v1/orders?code=eq.${encodeURIComponent(b.code ?? "")}&select=${sel}`, {
@@ -263,8 +315,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
       let to: string | null = null;
       let text = "";
       if (b.kind === "new-order") {
-        to = normMobile(st.sms_admin_mobile ?? "")?.e10 ?? null;
-        text = `سفارش جدید ${order.code} — ${order.total} تومان — ${order.name} — ${order.phone}`;
+        to = normMobile(st.admin_mobile ?? "")?.e10 ?? null;
+        // نام/تلفن ورودی مشتری است — پاک‌سازی ضد تزریق محتوا در پیامک به مدیر
+        text = `سفارش جدید ${clean(order.code, 25)} — ${Number(order.total) | 0} تومان — ${clean(order.name, 40)} — ${clean(order.phone, 20)}`;
         if (!to) return json({ ok: false, error: "موبایل مدیر در تنظیمات ثبت نشده" });
       } else {
         to = normMobile(order.phone)?.e10 ?? null;

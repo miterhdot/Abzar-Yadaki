@@ -660,20 +660,12 @@ export async function dbGetSettings(): Promise<Settings | null> {
   if (!c) return null;
   const { data } = await c
     .from("settings")
-    .select("ann, phone, free_shipping, ship_post, ship_peyk, sms_admin_mobile, sms_notify_new_order, sms_notify_status")
+    .select("ann, phone, free_shipping, ship_post, ship_peyk")
     .eq("id", true)
     .maybeSingle();
   if (!data) return null;
-  const v = data as {
-    ann: string; phone: string; free_shipping: number; ship_post: number; ship_peyk: number;
-    sms_admin_mobile: string; sms_notify_new_order: boolean; sms_notify_status: boolean;
-  };
-  return {
-    ann: v.ann, phone: v.phone, free: v.free_shipping, shipPost: v.ship_post, shipPeyk: v.ship_peyk,
-    smsAdminMobile: v.sms_admin_mobile ?? "",
-    smsNotifyNewOrder: Boolean(v.sms_notify_new_order),
-    smsNotifyStatus: Boolean(v.sms_notify_status),
-  };
+  const v = data as { ann: string; phone: string; free_shipping: number; ship_post: number; ship_peyk: number };
+  return { ann: v.ann, phone: v.phone, free: v.free_shipping, shipPost: v.ship_post, shipPeyk: v.ship_peyk };
 }
 
 export async function dbSaveSettings(s: Settings): Promise<{ ok: true } | { ok: false; error: string }> {
@@ -681,9 +673,22 @@ export async function dbSaveSettings(s: Settings): Promise<{ ok: true } | { ok: 
   if (!c) return { ok: false, error: "db-off" };
   const { error } = await c.from("settings").update({
     ann: s.ann, phone: s.phone, free_shipping: s.free, ship_post: s.shipPost, ship_peyk: s.shipPeyk,
-    sms_admin_mobile: s.smsAdminMobile ?? "",
-    sms_notify_new_order: Boolean(s.smsNotifyNewOrder),
-    sms_notify_status: Boolean(s.smsNotifyStatus),
+  }).eq("id", true);
+  if (error) return { ok: false, error: errMsg(error) };
+  return { ok: true };
+}
+
+/* ── ۶-۸-ب) پیکربندی پیامک — جدول اختصاصی sms_config با RLS «فقط ادمین» (دستور ۴۴ — ضد نشت عمومی) ── */
+
+export async function dbSmsSaveConfig(
+  adminMobile: string,
+  notifyNewOrder: boolean,
+  notifyStatus: boolean
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const c = db();
+  if (!c) return { ok: false, error: "db-off" };
+  const { error } = await c.from("sms_config").update({
+    admin_mobile: adminMobile, notify_new_order: notifyNewOrder, notify_status: notifyStatus, updated_at: new Date().toISOString(),
   }).eq("id", true);
   if (error) return { ok: false, error: errMsg(error) };
   return { ok: true };
@@ -756,6 +761,9 @@ export type SmsStatus = {
   line: boolean; // خط اختصاصی ارسال
   statusTemplate: boolean; // قالب اطلاع‌رسانی وضعیت سفارش
   hookReady: boolean; // هوک ورود پیامکی آماده؟
+  adminMobile: string; // موبایل مدیر ثبت‌شده (از sms_config — فقط ادمین می‌بیند)
+  notifyNewOrder: boolean; // اطلاع‌رسانی سفارش جدید به مدیر
+  notifyStatus: boolean; // اطلاع‌رسانی تغییر وضعیت به مشتری
 };
 
 export async function dbSmsStatus(): Promise<SmsStatus | null> {

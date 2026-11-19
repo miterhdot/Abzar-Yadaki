@@ -23,7 +23,7 @@ import {
   dbAdminProfiles, dbAdminProducts, dbAdminReviews, dbAdminRestore, dbAdminSignOut, dbReady,
   dbDeleteBanner, dbDeleteCoupon, dbDeleteMessage, dbDeletePost, dbDeleteProduct, dbDeleteReview,
   dbFetchPosts, dbGetSettings, dbReadMessage, dbSavePost, dbSaveProduct, dbSaveSettings,
-  dbSetOrderStatus, dbSetReview, dbSmsCredit, dbSmsNotify, dbSmsStatus, dbSmsTest,
+  dbSetOrderStatus, dbSetReview, dbSmsCredit, dbSmsNotify, dbSmsSaveConfig, dbSmsStatus, dbSmsTest,
   dbToggleBanner, dbToggleCoupon,
   type NewsletterRow, type SmsStatus,} from "@/lib/supabase";
 import { LogoMark } from "../bits";
@@ -122,21 +122,22 @@ type AdmData = {
   posts: Post[];
   profiles: { name: string; phone: string }[];
   settings: Settings | null;
+  smsStatus: SmsStatus | null; // وضعیت/پیکربندی پیامک (دستور ۴۴ — برای دروازهٔ اعلان‌ها)
   cats: [string, string][];
 };
 
 const admEmpty: AdmData = {
   loaded: false, err: "", orders: [], prods: [], reviews: [],
-  coupons: [], banners: [], msgs: [], news: [], posts: [], profiles: [], settings: null, cats: [],
+  coupons: [], banners: [], msgs: [], news: [], posts: [], profiles: [], settings: null, cats: [], smsStatus: null,
 };
 
 const useAdm = create<AdmData>(() => ({ ...admEmpty }));
 
 const loadAdm = async (): Promise<void> => {
-  const [o, p, r, c, b, m, pr, st, ct, nl, pl] = await Promise.all([
+  const [o, p, r, c, b, m, pr, st, ct, nl, pl, sms] = await Promise.all([
     dbAdminOrders(), dbAdminProducts(), dbAdminReviews(), dbAdminCoupons(),
     dbAdminBanners(), dbAdminMessages(), dbAdminProfiles(), dbGetSettings(), dbAdminCategories(),
-    dbAdminNewsletter(), dbFetchPosts(),
+    dbAdminNewsletter(), dbFetchPosts(), dbSmsStatus(),
   ]);
   const err = [o, p, r, c, b, m].some((x) => !x.ok) ? "خطا در بارگذاری بخشی از داده‌ها" : "";
   useAdm.setState({
@@ -152,6 +153,7 @@ const loadAdm = async (): Promise<void> => {
     profiles: pr.ok ? pr.rows : [],
     settings: st,
     cats: ct.ok ? ct.rows : [],
+    smsStatus: sms,
   });
 };
 
@@ -396,9 +398,8 @@ export function AdminApp() {
         (code) => {
           loadAdm().then(() => {
             useUI.getState().say("🧾 سفارش جدید ثبت شد");
-            // اعلان پیامکی سفارش جدید به مدیر (اگر در تنظیمات فعال باشد — دستور ۴۳)
-            const st = useAdm.getState().settings;
-            if (code && st?.smsNotifyNewOrder) {
+            // اعلان پیامکی سفارش جدید به مدیر (اگر در پیکربندی پیامک فعال باشد — دستور ۴۳/۴۴)
+            if (code && useAdm.getState().smsStatus?.notifyNewOrder) {
               dbSmsNotify("new-order", code, (err) => useUI.getState().say("⚠️ " + err));
             }
           });
@@ -462,8 +463,8 @@ export function AdminApp() {
       return;
     }
     useUI.getState().say(`وضعیت ${code} → ${STATUS_FA[s]} ✓`);
-    // اعلان پیامکی تغییر وضعیت به مشتری (اگر در تنظیمات فعال باشد — دستور ۴۳)
-    if (useAdm.getState().settings?.smsNotifyStatus) {
+    // اعلان پیامکی تغییر وضعیت به مشتری (اگر در پیکربندی پیامک فعال باشد — دستور ۴۳/۴۴)
+    if (useAdm.getState().smsStatus?.notifyStatus) {
       dbSmsNotify("status", code, (err) => useUI.getState().say("⚠️ " + err));
     }
   };
@@ -1695,9 +1696,6 @@ function SettingsTab({
     }
     const ok = await onSave({
       ann: f.ann.trim(), phone: f.phone.trim(), free, shipPost: post, shipPeyk: peyk,
-      smsAdminMobile: settings.smsAdminMobile ?? "",
-      smsNotifyNewOrder: settings.smsNotifyNewOrder ?? false,
-      smsNotifyStatus: settings.smsNotifyStatus ?? false,
     });
     if (!ok) return;
     useUI.getState().say("تنظیمات ذخیره شد ✓");
@@ -1741,7 +1739,7 @@ function SettingsTab({
         </small>
       </div>
 
-      {real && <SmsPanel settings={settings} />}
+      {real && <SmsPanel />}
     </>
   );
 }
@@ -1908,21 +1906,26 @@ function PostsTab({
 
 /* ── پنل پیامک (سرویس sms.ir — دستور ۴۳): وضعیت زیرساخت + پیکربندی اعلان + ارسال آزمایشی ── */
 
-function SmsPanel({ settings }: { settings: Settings }) {
+function SmsPanel() {
   const [st, setSt] = useState<SmsStatus | null>(null);
   const [stErr, setStErr] = useState("");
-  const [mobile, setMobile] = useState(settings.smsAdminMobile ?? "");
-  const [notifyNew, setNotifyNew] = useState(Boolean(settings.smsNotifyNewOrder));
-  const [notifyStatus, setNotifyStatus] = useState(Boolean(settings.smsNotifyStatus));
+  const [mobile, setMobile] = useState("");
+  const [notifyNew, setNotifyNew] = useState(false);
+  const [notifyStatus, setNotifyStatus] = useState(false);
   const [testNo, setTestNo] = useState("");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     let alive = true;
+    // پیکربندی اعلان‌ها هم از همین اقدام می‌آید (جدول sms_config — فقط ادمین می‌بیند)
     dbSmsStatus().then((s) => {
       if (!alive) return;
-      if (s) setSt(s);
-      else setStErr("تابع پیامک پاسخ نداد — اتصال را بررسی کنید");
+      if (s) {
+        setSt(s);
+        setMobile(s.adminMobile ?? "");
+        setNotifyNew(Boolean(s.notifyNewOrder));
+        setNotifyStatus(Boolean(s.notifyStatus));
+      } else setStErr("تابع پیامک پاسخ نداد — اتصال را بررسی کنید");
     });
     return () => {
       alive = false;
@@ -1936,14 +1939,15 @@ function SmsPanel({ settings }: { settings: Settings }) {
       return;
     }
     setBusy(true);
-    const ok = await dbSaveSettings({
-      ...settings,
-      smsAdminMobile: m,
-      smsNotifyNewOrder: notifyNew,
-      smsNotifyStatus: notifyStatus,
-    });
+    const r = await dbSmsSaveConfig(m, notifyNew, notifyStatus);
     setBusy(false);
-    useUI.getState().say(ok ? "پیکربندی پیامک ذخیره شد ✓" : "ذخیرهٔ پیکربندی ناموفق");
+    if (r.ok) {
+      // تازگی دروازهٔ اعلان‌ها بدون بارگذاری مجدد (دستور ۴۴)
+      setSt((prev) => (prev ? { ...prev, adminMobile: m, notifyNewOrder: notifyNew, notifyStatus: notifyStatus } : prev));
+      const cur = useAdm.getState().smsStatus;
+      if (cur) useAdm.setState({ smsStatus: { ...cur, adminMobile: m, notifyNewOrder: notifyNew, notifyStatus: notifyStatus } });
+    }
+    useUI.getState().say(r.ok ? "پیکربندی پیامک ذخیره شد ✓" : `ذخیرهٔ پیکربندی ناموفق: ${r.ok ? "" : r.error}`);
   };
 
   const doTest = async () => {

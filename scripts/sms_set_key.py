@@ -15,7 +15,7 @@ import urllib.request
 
 REF = "wdbixiercvkshmamobro"
 BASE = "https://api.supabase.com/v1"
-SEC = "/home/z/my-project/Abzar-Yadaki/secrets"
+SEC = "/home/z/my-project/secrets" if __import__("os").path.exists("/home/z/my-project/secrets/supabase_access_token.txt") else "/home/z/my-project/Abzar-Yadaki/secrets"
 tok = open(f"{SEC}/supabase_access_token.txt").read().strip()
 URI = f"https://{REF}.supabase.co/functions/v1/send-sms"
 
