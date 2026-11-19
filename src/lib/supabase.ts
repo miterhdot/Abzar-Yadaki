@@ -118,18 +118,37 @@ export async function dbSendMessage(m: {
   return { ok: true };
 }
 
-/* ── ۴) ورود با کد یکبارمصرف پیامکی (Supabase Auth — هش رمز/نشست امن سمت سرور) ── */
+/* ── ۴) ورود با کد یکبارمصرف پیامکی (Supabase Auth — هش رمز/نشست امن سمت سرور)
+ * ارائه‌دهندهٔ پیامک = سرویس sms.ir از طریق هوک امن send-sms روی پروژه (دستور ۴۳) ── */
+
+/** شمارهٔ ایران (۰۹…/۹۸…/ارقام فارسی) → E.164 (+989xxxxxxxxx) — الزام GoTrue پس از فعال‌شدن Phone */
+function toE164(m: string): string | null {
+  let d = m
+    .replace(/[۰-۹]/g, (ch) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(ch)))
+    .replace(/[٠-٩]/g, (ch) => String("٠١٢٣٤٥٦٧٨٩".indexOf(ch)))
+    .replace(/\D/g, "");
+  if (d.startsWith("0098")) d = d.slice(4);
+  else if (d.startsWith("98") && d.length >= 12) d = d.slice(2);
+  if (d.startsWith("0")) d = d.slice(1);
+  return /^9\d{9}$/.test(d) ? `+98${d}` : null;
+}
 
 export async function dbOtpSend(
   phone: string
 ): Promise<{ ok: true } | { ok: false; reason: "db-off" | "sms-off" | "error"; error?: string }> {
   const c = db();
   if (!c) return { ok: false, reason: "db-off" };
-  const { error } = await c.auth.signInWithOtp({ phone });
+  const e = toE164(phone);
+  if (!e) return { ok: false, reason: "error", error: "شمارهٔ موبایل معتبر نیست" };
+  const { error } = await c.auth.signInWithOtp({ phone: e });
   if (!error) return { ok: true };
-  // ارائه‌دهندهٔ پیامک هنوز در پروژهٔ Supabase پیکربندی نشده است
+  // سرویس پیامک پیکربندی نشده (هوک/کلید) یا ارائه‌دهندهٔ Phone خاموش است — پیام شفاف
   const msg = error.message.toLowerCase();
-  if (msg.includes("phone provider") || msg.includes("sms") || msg.includes("not enabled") || msg.includes("provider is not"))
+  if (
+    msg.includes("phone provider") || msg.includes("sms") || msg.includes("not enabled") ||
+    msg.includes("provider is not") || msg.includes("hook") ||
+    msg.includes("کلید api") || msg.includes("قالب") || msg.includes("پیامک")
+  )
     return { ok: false, reason: "sms-off" };
   return { ok: false, reason: "error", error: errMsg(error) };
 }
@@ -140,7 +159,9 @@ export async function dbOtpVerify(
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const c = db();
   if (!c) return { ok: false, error: "db-off" };
-  const { error } = await c.auth.verifyOtp({ phone, token, type: "sms" });
+  const e = toE164(phone);
+  if (!e) return { ok: false, error: "شمارهٔ موبایل معتبر نیست" };
+  const { error } = await c.auth.verifyOtp({ phone: e, token, type: "sms" });
   if (error) return { ok: false, error: errMsg(error) };
   return { ok: true };
 }
@@ -639,12 +660,20 @@ export async function dbGetSettings(): Promise<Settings | null> {
   if (!c) return null;
   const { data } = await c
     .from("settings")
-    .select("ann, phone, free_shipping, ship_post, ship_peyk")
+    .select("ann, phone, free_shipping, ship_post, ship_peyk, sms_admin_mobile, sms_notify_new_order, sms_notify_status")
     .eq("id", true)
     .maybeSingle();
   if (!data) return null;
-  const v = data as { ann: string; phone: string; free_shipping: number; ship_post: number; ship_peyk: number };
-  return { ann: v.ann, phone: v.phone, free: v.free_shipping, shipPost: v.ship_post, shipPeyk: v.ship_peyk };
+  const v = data as {
+    ann: string; phone: string; free_shipping: number; ship_post: number; ship_peyk: number;
+    sms_admin_mobile: string; sms_notify_new_order: boolean; sms_notify_status: boolean;
+  };
+  return {
+    ann: v.ann, phone: v.phone, free: v.free_shipping, shipPost: v.ship_post, shipPeyk: v.ship_peyk,
+    smsAdminMobile: v.sms_admin_mobile ?? "",
+    smsNotifyNewOrder: Boolean(v.sms_notify_new_order),
+    smsNotifyStatus: Boolean(v.sms_notify_status),
+  };
 }
 
 export async function dbSaveSettings(s: Settings): Promise<{ ok: true } | { ok: false; error: string }> {
@@ -652,6 +681,9 @@ export async function dbSaveSettings(s: Settings): Promise<{ ok: true } | { ok: 
   if (!c) return { ok: false, error: "db-off" };
   const { error } = await c.from("settings").update({
     ann: s.ann, phone: s.phone, free_shipping: s.free, ship_post: s.shipPost, ship_peyk: s.shipPeyk,
+    sms_admin_mobile: s.smsAdminMobile ?? "",
+    sms_notify_new_order: Boolean(s.smsNotifyNewOrder),
+    sms_notify_status: Boolean(s.smsNotifyStatus),
   }).eq("id", true);
   if (error) return { ok: false, error: errMsg(error) };
   return { ok: true };
@@ -692,19 +724,95 @@ export async function dbCheckCoupon(code: string, subtotal: number): Promise<Cou
 /* ── ۶-۱۲) اعلان زنده — INSERT سفارش/پیام جدید (Realtime — فقط برای ادمین واردشده) ── */
 
 export function dbAdminLive(
-  onNewOrder: () => void,
+  onNewOrder: (code?: string) => void,
   onNewMessage: () => void
 ): () => void {
   const c = db();
   if (!c) return () => {};
   const ch = c
     .channel("adm-live")
-    .on("postgres_changes", { event: "INSERT", schema: "public", table: "orders" }, onNewOrder)
+    .on(
+      "postgres_changes",
+      { event: "INSERT", schema: "public", table: "orders" },
+      (pl) => {
+        const code = (pl as unknown as { new?: { code?: string } }).new?.code;
+        onNewOrder(code);
+      }
+    )
     .on("postgres_changes", { event: "INSERT", schema: "public", table: "contact_messages" }, onNewMessage)
     .subscribe();
   return () => {
     c.removeChannel(ch);
   };
+}
+
+/* ── ۶-۱۴) پیامک sms.ir — اقدامات ادمین از طریق تابع امن send-sms (دستور ۴۳) ──
+ * کلید API فقط به‌صورت Secret تابع روی پروژه است؛ مرورگر هرگز به آن دسترسی ندارد.
+ * هر اقدام با JWT ادمین (امضای HS256 پروژه + نقش admin در profiles) راستی‌آزمایی می‌شود. */
+
+export type SmsStatus = {
+  configured: boolean; // کلید API تنظیم شده؟
+  otpTemplate: boolean; // قالب کد تأیید OTP
+  line: boolean; // خط اختصاصی ارسال
+  statusTemplate: boolean; // قالب اطلاع‌رسانی وضعیت سفارش
+  hookReady: boolean; // هوک ورود پیامکی آماده؟
+};
+
+export async function dbSmsStatus(): Promise<SmsStatus | null> {
+  const c = db();
+  if (!c) return null;
+  try {
+    const { data, error } = await c.functions.invoke("send-sms", { body: { action: "status" } });
+    if (error) return null;
+    return (data as SmsStatus) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function dbSmsCredit(): Promise<{ ok: boolean; credit?: number; error?: string }> {
+  const c = db();
+  if (!c) return { ok: false, error: "db-off" };
+  try {
+    const { data, error } = await c.functions.invoke("send-sms", { body: { action: "credit" } });
+    if (error) return { ok: false, error: errMsg(error) };
+    return (data ?? { ok: false, error: "پاسخ نامعتبر" }) as { ok: boolean; credit?: number; error?: string };
+  } catch (e) {
+    return { ok: false, error: String(e) };
+  }
+}
+
+export async function dbSmsTest(mobile: string): Promise<{ ok: boolean; error?: string }> {
+  const c = db();
+  if (!c) return { ok: false, error: "db-off" };
+  try {
+    const { data, error } = await c.functions.invoke("send-sms", {
+      body: { action: "test", mobile, text: "پیامک آزمایشی ابزار یدکی — سرویس پیامک فعال است ✓" },
+    });
+    if (error) return { ok: false, error: errMsg(error) };
+    return (data ?? { ok: false, error: "پاسخ نامعتبر" }) as { ok: boolean; error?: string };
+  } catch (e) {
+    return { ok: false, error: String(e) };
+  }
+}
+
+/** اعلان پیامکی سفارش — fire-and-forget؛ هرگز جریان اصلی ادمین را نمی‌شکند */
+export function dbSmsNotify(
+  kind: "new-order" | "status",
+  code: string,
+  onFail?: (err: string) => void
+): void {
+  const c = db();
+  if (!c) return;
+  c.functions
+    .invoke("send-sms", { body: { action: "notify", kind, code } })
+    .then((r) => {
+      const d = r.data as { ok?: boolean; error?: string } | null;
+      if (onFail && (r.error || (d && d.ok === false))) {
+        onFail((d?.error ?? "") || "خطای نامعلوم");
+      }
+    })
+    .catch(() => {});
 }
 
 /* ── ۶-۱۳) کاتالوگ واقعی برای بازدیدکننده — بارگذاری در بوت سایت ──

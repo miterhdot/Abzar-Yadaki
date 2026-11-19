@@ -23,9 +23,9 @@ import {
   dbAdminProfiles, dbAdminProducts, dbAdminReviews, dbAdminRestore, dbAdminSignOut, dbReady,
   dbDeleteBanner, dbDeleteCoupon, dbDeleteMessage, dbDeletePost, dbDeleteProduct, dbDeleteReview,
   dbFetchPosts, dbGetSettings, dbReadMessage, dbSavePost, dbSaveProduct, dbSaveSettings,
-  dbSetOrderStatus, dbSetReview, dbToggleBanner, dbToggleCoupon,
-  type NewsletterRow,
-} from "@/lib/supabase";
+  dbSetOrderStatus, dbSetReview, dbSmsCredit, dbSmsNotify, dbSmsStatus, dbSmsTest,
+  dbToggleBanner, dbToggleCoupon,
+  type NewsletterRow, type SmsStatus,} from "@/lib/supabase";
 import { LogoMark } from "../bits";
 
 type Tab =
@@ -393,9 +393,15 @@ export function AdminApp() {
       await loadAdm();
       if (cancelled) return;
       off = dbAdminLive(
-        () => {
-          loadAdm();
-          useUI.getState().say("🧾 سفارش جدید ثبت شد");
+        (code) => {
+          loadAdm().then(() => {
+            useUI.getState().say("🧾 سفارش جدید ثبت شد");
+            // اعلان پیامکی سفارش جدید به مدیر (اگر در تنظیمات فعال باشد — دستور ۴۳)
+            const st = useAdm.getState().settings;
+            if (code && st?.smsNotifyNewOrder) {
+              dbSmsNotify("new-order", code, (err) => useUI.getState().say("⚠️ " + err));
+            }
+          });
         },
         () => {
           loadAdm();
@@ -456,6 +462,10 @@ export function AdminApp() {
       return;
     }
     useUI.getState().say(`وضعیت ${code} → ${STATUS_FA[s]} ✓`);
+    // اعلان پیامکی تغییر وضعیت به مشتری (اگر در تنظیمات فعال باشد — دستور ۴۳)
+    if (useAdm.getState().settings?.smsNotifyStatus) {
+      dbSmsNotify("status", code, (err) => useUI.getState().say("⚠️ " + err));
+    }
   };
 
   const actSetReview = async (id: number, s: Review["status"], msg: string) => {
@@ -1683,7 +1693,12 @@ function SettingsTab({
       useUI.getState().say("همه مقادیر را درست وارد کنید");
       return;
     }
-    const ok = await onSave({ ann: f.ann.trim(), phone: f.phone.trim(), free, shipPost: post, shipPeyk: peyk });
+    const ok = await onSave({
+      ann: f.ann.trim(), phone: f.phone.trim(), free, shipPost: post, shipPeyk: peyk,
+      smsAdminMobile: settings.smsAdminMobile ?? "",
+      smsNotifyNewOrder: settings.smsNotifyNewOrder ?? false,
+      smsNotifyStatus: settings.smsNotifyStatus ?? false,
+    });
     if (!ok) return;
     useUI.getState().say("تنظیمات ذخیره شد ✓");
   };
@@ -1725,6 +1740,8 @@ function SettingsTab({
             : "تغییرات بلافاصله در سایت اعمال می‌شود: نوار اعلان، سبد خرید، صفحه محصول و تسویه‌حساب."}
         </small>
       </div>
+
+      {real && <SmsPanel settings={settings} />}
     </>
   );
 }
@@ -1886,5 +1903,126 @@ function PostsTab({
         ))}
       </div>
     </>
+  );
+}
+
+/* ── پنل پیامک (سرویس sms.ir — دستور ۴۳): وضعیت زیرساخت + پیکربندی اعلان + ارسال آزمایشی ── */
+
+function SmsPanel({ settings }: { settings: Settings }) {
+  const [st, setSt] = useState<SmsStatus | null>(null);
+  const [stErr, setStErr] = useState("");
+  const [mobile, setMobile] = useState(settings.smsAdminMobile ?? "");
+  const [notifyNew, setNotifyNew] = useState(Boolean(settings.smsNotifyNewOrder));
+  const [notifyStatus, setNotifyStatus] = useState(Boolean(settings.smsNotifyStatus));
+  const [testNo, setTestNo] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    dbSmsStatus().then((s) => {
+      if (!alive) return;
+      if (s) setSt(s);
+      else setStErr("تابع پیامک پاسخ نداد — اتصال را بررسی کنید");
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const saveCfg = async () => {
+    const m = dg(mobile.trim());
+    if (m && !/^09\d{9}$/.test(m)) {
+      useUI.getState().say("شمارهٔ موبایل مدیر معتبر نیست (۰۹xxxxxxxxx)");
+      return;
+    }
+    setBusy(true);
+    const ok = await dbSaveSettings({
+      ...settings,
+      smsAdminMobile: m,
+      smsNotifyNewOrder: notifyNew,
+      smsNotifyStatus: notifyStatus,
+    });
+    setBusy(false);
+    useUI.getState().say(ok ? "پیکربندی پیامک ذخیره شد ✓" : "ذخیرهٔ پیکربندی ناموفق");
+  };
+
+  const doTest = async () => {
+    const m = dg(testNo.trim());
+    if (!/^09\d{9}$/.test(m)) {
+      useUI.getState().say("شمارهٔ آزمایشی معتبر نیست (۰۹xxxxxxxxx)");
+      return;
+    }
+    setBusy(true);
+    const r = await dbSmsTest(m);
+    setBusy(false);
+    useUI.getState().say(r.ok ? "پیامک آزمایشی ارسال شد ✓" : `ارسال ناموفق: ${r.error ?? ""}`);
+  };
+
+  const doCredit = async () => {
+    setBusy(true);
+    const r = await dbSmsCredit();
+    setBusy(false);
+    useUI.getState().say(r.ok ? `اعتبار پیامک: ${r.credit ?? "—"} ریال` : `استعلام ناموفق: ${r.error ?? ""}`);
+  };
+
+  const row = (label: string, ok: boolean) => (
+    <div key={label} style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+      <small>{label}</small>
+      <small className={"badge " + (ok ? "b-ok" : "b-err")}>{ok ? "✓ آماده" : "✗ تنظیم نشده"}</small>
+    </div>
+  );
+
+  return (
+    <div className="panel fm" style={{ maxWidth: 560, marginTop: 14 }}>
+      <b>پیامک — سرویس sms.ir</b>
+      <small style={{ display: "block", color: "var(--mute)", marginTop: 4 }}>
+        کلید API و قالب‌ها فقط سمت سرور (Secret تابع) نگه‌داری می‌شوند و با اسکریپت تنظیم می‌شوند — هرگز در پنل وارد نمی‌شوند.
+      </small>
+      <div style={{ display: "grid", gap: 4, marginTop: 10 }}>
+        {stErr ? <small className="badge b-err">{stErr}</small> : st ? (
+          <>
+            {row("کلید API سرویس پیامک", st.configured)}
+            {row("هوک ورود پیامکی (OTP)", st.hookReady)}
+            {row("قالب کد تأیید", st.otpTemplate)}
+            {row("خط اختصاصی ارسال", st.line)}
+            {row("قالب وضعیت سفارش", st.statusTemplate)}
+          </>
+        ) : (
+          <small style={{ color: "var(--mute)" }}>در حال بررسی وضعیت…</small>
+        )}
+      </div>
+
+      <label style={{ marginTop: 10 }}>
+        موبایل مدیر برای اعلان سفارش جدید (۰۹xxxxxxxxx)
+        <input value={mobile} onChange={(e) => setMobile(e.target.value)} inputMode="tel" placeholder="۰۹۱۲…" />
+      </label>
+      <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <input type="checkbox" checked={notifyNew} onChange={(e) => setNotifyNew(e.target.checked)} />
+        اطلاع‌رسانی پیامکی سفارش جدید به مدیر
+      </label>
+      <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <input type="checkbox" checked={notifyStatus} onChange={(e) => setNotifyStatus(e.target.checked)} />
+        اطلاع‌رسانی پیامکی تغییر وضعیت سفارش به مشتری
+      </label>
+      <button className="btn" type="button" onClick={saveCfg} disabled={busy}>
+        ذخیرهٔ پیکربندی پیامک
+      </button>
+
+      <label style={{ marginTop: 10 }}>
+        ارسال آزمایشی — شمارهٔ دریافت‌کننده
+        <input value={testNo} onChange={(e) => setTestNo(e.target.value)} inputMode="tel" placeholder="۰۹۱۲…" />
+      </label>
+      <div className="two">
+        <button className="btn ghost" type="button" onClick={doTest} disabled={busy}>
+          ارسال آزمایشی
+        </button>
+        <button className="btn ghost" type="button" onClick={doCredit} disabled={busy}>
+          دریافت اعتبار
+        </button>
+      </div>
+      <small style={{ color: "var(--mute)" }}>
+        ورود پیامکی (OTP) خودکار از همین سرویس ارسال می‌شود؛ پس از تنظیم کلید و قالب در پنل sms.ir با یک فرمان فعال است.
+      </small>
+    </div>
   );
 }

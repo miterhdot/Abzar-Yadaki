@@ -264,7 +264,12 @@ export const ADDRESSES: Address[] = [
   { id: 2, phone: "۰۹۱۲۳۴۵۶۷۸۹", title: "محل کار", text: "تهران، میدان آزادی، مجتمع فنی آریا، پلاک ۴" },
 ];
 
-export type Settings = typeof SETTINGS;
+export type Settings = typeof SETTINGS & {
+  // پیکربندی پیامک (سرویس sms.ir — دستور ۴۳) — اختیاری؛ از دیتابیس می‌آید
+  smsAdminMobile?: string;
+  smsNotifyNewOrder?: boolean;
+  smsNotifyStatus?: boolean;
+};
 
 export const SETTINGS = {
   ann: "ارسال رایگان برای خرید بالای ۳ میلیون تومان · ضمانت اصالت کالا",

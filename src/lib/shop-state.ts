@@ -4,7 +4,7 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import {
   ADDRESSES, Address, BANNERS, Banner, COUPONS, Coupon, MSGS, Msg, Order, OrderStatus,
-  P, POSTS, Product, REVIEWS_QUEUE, Review, SETTINGS, Settings, ORDERS,
+  P, POSTS, Post, Product, REVIEWS_QUEUE, Review, SETTINGS, Settings, ORDERS,
 } from "@/data/store";
 
 /* ─────────── Route (hash-based, same hashes as design) ─────────── */
